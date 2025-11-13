@@ -3100,6 +3100,7 @@ dependencies = [
 name = "query"
 version = "0.1.0"
 dependencies = [
+ "dirs",
  "ring",
  "serde",
  "serde_json",

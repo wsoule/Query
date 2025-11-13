@@ -1,14 +1,18 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::{Deserialize, Serialize};
 use sqlx::postgres::PgPool;
-use sqlx::{Row, Column};
+use sqlx::{Column, Row};
+use std::fs;
+use std::path::PathBuf;
+// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 struct ConnectionConfig {
+    name: String,
     host: String,
     port: u16,
     database: String,
     username: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     password: String,
 }
 
@@ -25,11 +29,7 @@ async fn test_postgres_connection(config: ConnectionConfig) -> Result<String, St
     // build connection string
     let connection_string = format!(
         "postgres://{}:{}@{}:{}/{}",
-        config.username,
-        config.password,
-        config.host,
-        config.port,
-        config.database
+        config.username, config.password, config.host, config.port, config.database
     );
 
     // Try to connect
@@ -40,21 +40,20 @@ async fn test_postgres_connection(config: ConnectionConfig) -> Result<String, St
     // Close the connection
     pool.close().await;
 
-    Ok(format!("Successfully connected to {}:{}/{}", config.host, config.port, config.database))
+    Ok(format!(
+        "Successfully connected to {}:{}/{}",
+        config.host, config.port, config.database
+    ))
 }
 
 #[tauri::command]
 async fn execute_query(config: ConnectionConfig, query: String) -> Result<QueryResult, String> {
     let start = std::time::Instant::now();
-    
+
     // build connection string
     let connection_string = format!(
         "postgres://{}:{}@{}:{}/{}",
-        config.username,
-        config.password,
-        config.host,
-        config.port,
-        config.database
+        config.username, config.password, config.host, config.port, config.database
     );
 
     // Try to connect
@@ -106,7 +105,6 @@ async fn execute_query(config: ConnectionConfig, query: String) -> Result<QueryR
     let execution_time_ms = start.elapsed().as_millis();
     let row_count = result_rows.len();
 
-
     Ok(QueryResult {
         columns,
         rows: result_rows,
@@ -115,17 +113,65 @@ async fn execute_query(config: ConnectionConfig, query: String) -> Result<QueryR
     })
 }
 
-
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+#[tauri::command]
+fn get_app_dir() -> Result<PathBuf, String> {
+    let app_dir = dirs::home_dir()
+        .ok_or("Could not find home directory")?
+        .join(".query");
+
+    fs::create_dir_all(&app_dir).map_err(|e| format!("Could not create app directory: {}", e))?;
+
+    Ok(app_dir)
+}
+
+#[tauri::command]
+fn save_connections(connections: Vec<ConnectionConfig>) -> Result<(), String> {
+    let app_dir = get_app_dir()?;
+    let connections_file = app_dir.join("connections.json");
+
+    let json = serde_json::to_string(&connections)
+        .map_err(|e| format!("Could not serialize connections: {}", e))?;
+
+    fs::write(connections_file, json)
+        .map_err(|e| format!("Could not write connections file: {}", e))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn load_connections() -> Result<Vec<ConnectionConfig>, String> {
+    let app_dir = get_app_dir()?;
+    let connections_file = app_dir.join("connections.json");
+
+    if !connections_file.exists() {
+        return Ok(Vec::new());
+    }
+
+    let data =
+        fs::read_to_string(&connections_file).map_err(|e| format!("Failed to read file: {}", e))?;
+
+    let connections: Vec<ConnectionConfig> =
+        serde_json::from_str(&data).map_err(|e| format!("Failed to parse: {}", e))?;
+
+    Ok(connections)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, test_postgres_connection, execute_query])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            test_postgres_connection,
+            execute_query,
+            load_connections,
+            save_connections
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
