@@ -1,0 +1,10 @@
+- [ ] quickly change between connections
+- [ ] store data in a specific location
+- [ ] hot query
+  - command + k
+    - 'select <table name>' -> select * from user
+    - 'update <table name>' -> update table where ...
+- [ ] save queries
+- [ ] query history
+- [ ] intellisense
+- [ ] variables (maybe not needed?)

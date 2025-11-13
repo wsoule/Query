@@ -5,6 +5,7 @@ use std::fs;
 use std::path::PathBuf;
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
+// TODO: ask for location to store the data, & somehow encrypt the password?
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct ConnectionConfig {
     name: String,
