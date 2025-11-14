@@ -3,6 +3,21 @@ import { SqlEditor } from "./components/SqlEditor";
 import { invoke } from "@tauri-apps/api/core";
 import { ResultsTable } from "./components/ResultsTable";
 import { QueryHistory } from "./components/QueryHistory";
+import { SchemaExplorer } from "./components/SchemaExplorer";
+interface ColumnInfo {
+  column_name: string;
+  data_type: string;
+  is_nullable: string;
+}
+
+interface TableInfo {
+  table_name: string;
+  columns: ColumnInfo[];
+}
+
+interface DatabaseSchema {
+  tables: TableInfo[];
+}
 
 interface ConnectionConfig {
   name: string;
@@ -30,9 +45,10 @@ interface QueryHistoryEntry {
 }
 
 function App() {
+  const [schema, setSchema] = useState<DatabaseSchema | null>(null);
   const [connections, setConnections] = useState<ConnectionConfig[]>([]);
   const [selectedConnection, setSelectedConnection] =
-  useState<ConnectionConfig | null>(null);
+    useState<ConnectionConfig | null>(null);
   const [history, setHistory] = useState<QueryHistoryEntry[]>([]);
 
   const [config, setConfig] = useState<ConnectionConfig>({
@@ -109,60 +125,79 @@ function App() {
     setConnected(false);
   }
 
-async function testConnection() {
-  setLoading(true);
-  setStatus('');
-  
-  try {
-    const result = await invoke<string>('test_postgres_connection', { config });
-    setStatus(result);
-    setConnected(true);
-    connectedRef.current = true;  // ← Add this
-  } catch (error) {
-    setStatus(`${error}`);
-    setConnected(false);
-    connectedRef.current = false;  // ← Add this
-  } finally {
-    setLoading(false);
-  }
-}
+  async function testConnection() {
+    setLoading(true);
+    setStatus("");
 
-async function executeQuery() {
-  if (!connectedRef.current) {  // ← Change from connected to connectedRef.current
-    setStatus('Please connect to a database first');
-    return;
+    try {
+      const result = await invoke<string>("test_postgres_connection", {
+        config,
+      });
+      setStatus(result);
+      setConnected(true);
+      connectedRef.current = true;
+
+      // Load schema after successful connection
+      const schemaData = await invoke<DatabaseSchema>("get_database_schema", {
+        config,
+      });
+      setSchema(schemaData);
+    } catch (error) {
+      setStatus(`${error}`);
+      setConnected(false);
+      connectedRef.current = false;
+      setSchema(null);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  setLoading(true);
-  setStatus('');
-  
-  try {
-    const queryResult = await invoke<QueryResult>('execute_query', {
-      config,
-      query,
-    });
-    
-    setResult(queryResult);
-    setStatus(`Query executed successfully - ${queryResult.row_count} rows in ${queryResult.execution_time_ms}ms`);
-    
-    // Save to history
-    await invoke('save_query_to_history', {
-      query,
-      connectionName: config.name,
-      executionTimeMs: queryResult.execution_time_ms,
-      rowCount: queryResult.row_count,
-    });
-    
-    // Reload history
-    await loadQueryHistory();
-    
-  } catch (error) {
-    setStatus(`${error}`);
-    setResult(null);
-  } finally {
-    setLoading(false);
+  function handleTableClick(tableName: string) {
+    setQuery(`SELECT * FROM ${tableName} LIMIT 100;`);
   }
-}
+
+  function handleColumnClick(tableName: string, columnName: string) {
+    // Insert column at cursor position in query
+    setQuery((prev) => `${prev}${columnName}`);
+  }
+  async function executeQuery() {
+    if (!connectedRef.current) {
+      // ← Change from connected to connectedRef.current
+      setStatus("Please connect to a database first");
+      return;
+    }
+
+    setLoading(true);
+    setStatus("");
+
+    try {
+      const queryResult = await invoke<QueryResult>("execute_query", {
+        config,
+        query,
+      });
+
+      setResult(queryResult);
+      setStatus(
+        `Query executed successfully - ${queryResult.row_count} rows in ${queryResult.execution_time_ms}ms`,
+      );
+
+      // Save to history
+      await invoke("save_query_to_history", {
+        query,
+        connectionName: config.name,
+        executionTimeMs: queryResult.execution_time_ms,
+        rowCount: queryResult.row_count,
+      });
+
+      // Reload history
+      await loadQueryHistory();
+    } catch (error) {
+      setStatus(`${error}`);
+      setResult(null);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function clearHistory() {
     try {
@@ -238,134 +273,140 @@ async function executeQuery() {
             {(showNewConnection ||
               selectedConnection ||
               connections.length === 0) && (
-                <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="font-semibold text-sm">
-                      {showNewConnection
-                        ? "New Connection"
-                        : "Connection Details"}
-                    </h2>
-                    {connected && (
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-semibold text-sm">
+                    {showNewConnection
+                      ? "New Connection"
+                      : "Connection Details"}
+                  </h2>
+                  {connected && (
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">
+                      Name
+                    </label>
+                    <input
+                      type="text"
+                      value={config.name}
+                      onChange={(e) =>
+                        setConfig({ ...config, name: e.target.value })
+                      }
+                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">
+                      Host
+                    </label>
+                    <input
+                      type="text"
+                      value={config.host}
+                      onChange={(e) =>
+                        setConfig({ ...config, host: e.target.value })
+                      }
+                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">
+                      Port
+                    </label>
+                    <input
+                      type="number"
+                      value={config.port}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          port: parseInt(e.target.value) || 5432,
+                        })
+                      }
+                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">
+                      Database
+                    </label>
+                    <input
+                      type="text"
+                      value={config.database}
+                      onChange={(e) =>
+                        setConfig({ ...config, database: e.target.value })
+                      }
+                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">
+                      Username
+                    </label>
+                    <input
+                      type="text"
+                      value={config.username}
+                      onChange={(e) =>
+                        setConfig({ ...config, username: e.target.value })
+                      }
+                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={config.password}
+                      onChange={(e) =>
+                        setConfig({ ...config, password: e.target.value })
+                      }
+                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                      placeholder="Enter password"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={testConnection}
+                      disabled={loading}
+                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium disabled:opacity-50 transition"
+                    >
+                      {loading ? "Connecting..." : "Connect"}
+                    </button>
+
+                    {showNewConnection && (
+                      <button
+                        onClick={saveConnection}
+                        className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium transition"
+                      >
+                        Save
+                      </button>
                     )}
                   </div>
-
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        value={config.name}
-                        onChange={(e) =>
-                          setConfig({ ...config, name: e.target.value })
-                        }
-                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">
-                        Host
-                      </label>
-                      <input
-                        type="text"
-                        value={config.host}
-                        onChange={(e) =>
-                          setConfig({ ...config, host: e.target.value })
-                        }
-                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">
-                        Port
-                      </label>
-                      <input
-                        type="number"
-                        value={config.port}
-                        onChange={(e) =>
-                          setConfig({
-                            ...config,
-                            port: parseInt(e.target.value) || 5432,
-                          })
-                        }
-                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">
-                        Database
-                      </label>
-                      <input
-                        type="text"
-                        value={config.database}
-                        onChange={(e) =>
-                          setConfig({ ...config, database: e.target.value })
-                        }
-                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">
-                        Username
-                      </label>
-                      <input
-                        type="text"
-                        value={config.username}
-                        onChange={(e) =>
-                          setConfig({ ...config, username: e.target.value })
-                        }
-                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1">
-                        Password
-                      </label>
-                      <input
-                        type="password"
-                        value={config.password}
-                        onChange={(e) =>
-                          setConfig({ ...config, password: e.target.value })
-                        }
-                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                        placeholder="Enter password"
-                      />
-                    </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={testConnection}
-                        disabled={loading}
-                        className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium disabled:opacity-50 transition"
-                      >
-                        {loading ? "Connecting..." : "Connect"}
-                      </button>
-
-                      {showNewConnection && (
-                        <button
-                          onClick={saveConnection}
-                          className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium transition"
-                        >
-                          Save
-                        </button>
-                      )}
-                    </div>
-                  </div>
                 </div>
-              )}
+              </div>
+            )}
 
             {/* Query History */}
             <QueryHistory
               history={history}
               onSelectQuery={selectQueryFromHistory}
               onClearHistory={clearHistory}
+            />
+            {/* Schema Explorer */}
+            <SchemaExplorer
+              schema={schema}
+              onTableClick={handleTableClick}
+              onColumnClick={handleColumnClick}
             />
           </div>
 
@@ -376,7 +417,11 @@ async function executeQuery() {
               <div>
                 <h2 className="font-semibold">Query Editor</h2>
                 <p className="text-xs text-gray-500 mt-1">
-                  Press <kbd className="px-1.5 py-0.5 bg-gray-900 rounded border border-gray-700">⌘ Enter</kbd> to run query
+                  Press{" "}
+                  <kbd className="px-1.5 py-0.5 bg-gray-900 rounded border border-gray-700">
+                    ⌘ Enter
+                  </kbd>{" "}
+                  to run query
                 </p>
               </div>
               <button
@@ -384,7 +429,7 @@ async function executeQuery() {
                 disabled={loading || !connected}
                 className="px-4 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm font-medium disabled:opacity-50 transition"
               >
-                {loading ? 'Running...' : 'Run Query'}
+                {loading ? "Running..." : "Run Query"}
               </button>
             </div>
             <div className="border border-gray-700 rounded overflow-hidden">
@@ -398,12 +443,12 @@ async function executeQuery() {
             {status && (
               <div
                 className={`mt-3 p-3 rounded text-sm ${
-status.includes("Error") ||
-status.includes("failed") ||
-status.includes("Please")
-? "bg-red-900/20 border border-red-700 text-red-300"
-: "bg-blue-900/20 border border-blue-700 text-blue-300"
-}`}
+                  status.includes("Error") ||
+                  status.includes("failed") ||
+                  status.includes("Please")
+                    ? "bg-red-900/20 border border-red-700 text-red-300"
+                    : "bg-blue-900/20 border border-blue-700 text-blue-300"
+                }`}
               >
                 {status}
               </div>

@@ -38,6 +38,89 @@ struct QueryResult {
     execution_time_ms: u128,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct TableInfo {
+    table_name: String,
+    columns: Vec<ColumnInfo>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ColumnInfo {
+    column_name: String,
+    data_type: String,
+    is_nullable: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct DatabaseSchema {
+    tables: Vec<TableInfo>,
+}
+
+#[tauri::command]
+async fn get_database_schema(config: ConnectionConfig) -> Result<DatabaseSchema, String> {
+    let connection_string = format!(
+        "postgres://{}:{}@{}:{}/{}",
+        config.username, config.password, config.host, config.port, config.database
+    );
+
+    let pool = PgPool::connect(&connection_string)
+        .await
+        .map_err(|e| format!("Connection failed: {}", e))?;
+
+    // Get all tables in public schema
+    let table_rows = sqlx::query(
+        "SELECT table_name 
+         FROM information_schema.tables 
+         WHERE table_schema = 'public' 
+         AND table_type = 'BASE TABLE'
+         ORDER BY table_name"
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|e| format!("Failed to fetch tables: {}", e))?;
+
+    let mut tables = Vec::new();
+
+    for table_row in table_rows {
+        let table_name: String = table_row.try_get("table_name")
+            .map_err(|e| format!("Failed to get table name: {}", e))?;
+
+        // Get columns for this table
+        let column_rows = sqlx::query(
+            "SELECT column_name, data_type, is_nullable
+             FROM information_schema.columns
+             WHERE table_schema = 'public'
+             AND table_name = $1
+             ORDER BY ordinal_position"
+        )
+        .bind(&table_name)
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| format!("Failed to fetch columns: {}", e))?;
+
+        let mut columns = Vec::new();
+        for col_row in column_rows {
+            columns.push(ColumnInfo {
+                column_name: col_row.try_get("column_name")
+                    .map_err(|e| format!("Failed to get column name: {}", e))?,
+                data_type: col_row.try_get("data_type")
+                    .map_err(|e| format!("Failed to get data type: {}", e))?,
+                is_nullable: col_row.try_get("is_nullable")
+                    .map_err(|e| format!("Failed to get is_nullable: {}", e))?,
+            });
+        }
+
+        tables.push(TableInfo {
+            table_name,
+            columns,
+        });
+    }
+
+    pool.close().await;
+
+    Ok(DatabaseSchema { tables })
+}
+
 async fn get_history_db() -> Result<SqlitePool, String> {
     let app_dir = get_app_dir()?;
     let db_path = app_dir.join("history.db");
@@ -298,6 +381,7 @@ pub fn run() {
             save_query_to_history,
             get_query_history,
             clear_query_history,
+            get_database_schema,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

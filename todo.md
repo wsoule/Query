@@ -17,3 +17,6 @@
 - [ ] other languages
   - mysql
   - mongodb (nosql)
+
+## Bugs
+- when clicking a column name, it just appends to the end of the test, not where the cursor is
