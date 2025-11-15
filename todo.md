@@ -15,6 +15,12 @@
 - [x] store data in a specific location (project directory picker)
 - [x] save encrypted data locally (OS keychain for passwords)
 - [x] open a project (select directory to store connections/history/queries)
+- [x] restructure app
+  - move components to their own folder
+  - move styles to their own folder
+  - move functions to their own folder
+  - move types to their own folder
+  - move constants to their own folder
 
 ### feats
 - [ ] export/import
@@ -23,12 +29,6 @@
 - [ ] better git integration (commit, push, pull in app)
 - [ ] read only mode
 - [ ] variables (maybe not needed?)
-- [ ] restructure app
-  - move components to their own folder
-  - move styles to their own folder
-  - move functions to their own folder
-  - move types to their own folder
-  - move constants to their own folder
 - [ ] ERD
 - [ ] schema comparison
 - [ ] yaak styling (add shadcn)
