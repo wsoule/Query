@@ -18,12 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select";
-import { Play, Database, Save, Settings as SettingsIcon } from "lucide-react";
+import { Play, Database, Save, Settings as SettingsIcon, Plus } from "lucide-react";
 import { SqlEditor } from "./components/editor/SqlEditor";
 import { ResultsTableEnhanced } from "./components/results/ResultsTableEnhanced";
 import { SaveQueryModal } from "./components/modals/SaveQueryModal";
 import { CommandPalette } from "./components/modals/CommandPalette";
 import { ProjectSettings } from "./components/modals/ProjectSettings";
+import { ConnectionModal } from "./components/modals/ConnectionModal";
 import type {
   DatabaseSchema,
   ConnectionConfig,
@@ -40,6 +41,7 @@ export default function AppNew() {
   const [savedQueries, setSavedQueries] = useState<SavedQuery[]>([]);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [vimMode] = useState(false);
   const [compactView] = useState(false);
   const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
@@ -158,6 +160,38 @@ export default function AppNew() {
       await loadSavedQueries();
     } catch (error) {
       setStatus(`Failed to toggle pin: ${error}`);
+    }
+  }
+
+  async function handleSaveConnection(connection: ConnectionConfig) {
+    try {
+      // Save password to keychain if provided
+      if (connection.password) {
+        await invoke("save_connection_password", {
+          name: connection.name,
+          password: connection.password,
+        });
+      }
+
+      // Add or update connection in list
+      const existing = connections.find((c) => c.name === connection.name);
+      let updated: ConnectionConfig[];
+
+      if (existing) {
+        updated = connections.map((c) =>
+          c.name === connection.name ? { ...connection, password: "" } : c
+        );
+      } else {
+        updated = [...connections, { ...connection, password: "" }];
+      }
+
+      await invoke("save_connections", { connections: updated });
+      setConnections(updated);
+      setConfig(connection);
+      setStatus(`Connection "${connection.name}" saved successfully`);
+      setShowConnectionModal(false);
+    } catch (error) {
+      setStatus(`Failed to save connection: ${error}`);
     }
   }
 
@@ -344,6 +378,14 @@ export default function AppNew() {
                 </SelectContent>
               </Select>
               <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowConnectionModal(true)}
+                title="Add new connection"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button
                 variant="outline"
                 size="sm"
                 onClick={testConnection}
@@ -465,6 +507,12 @@ export default function AppNew() {
         onClose={() => setShowProjectPicker(false)}
         onPathChanged={handleProjectPathChanged}
         currentPath={currentProjectPath}
+      />
+
+      <ConnectionModal
+        isOpen={showConnectionModal}
+        onClose={() => setShowConnectionModal(false)}
+        onSave={handleSaveConnection}
       />
     </SidebarProvider>
   );
