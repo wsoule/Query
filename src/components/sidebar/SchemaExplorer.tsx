@@ -1,19 +1,5 @@
 import { useState } from "react";
-
-interface ColumnInfo {
-  column_name: string;
-  data_type: string;
-  is_nullable: string;
-}
-
-interface TableInfo {
-  table_name: string;
-  columns: ColumnInfo[];
-}
-
-interface DatabaseSchema {
-  tables: TableInfo[];
-}
+import type { DatabaseSchema } from '../../types';
 
 interface SchemaExplorerProps {
   schema: DatabaseSchema | null;

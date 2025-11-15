@@ -1,20 +1,13 @@
 import { Editor } from '@monaco-editor/react';
 import { useRef, useEffect } from 'react';
 import { initVimMode } from 'monaco-vim';
+import type { DatabaseSchema } from '../../types';
 
 interface SqlEditorProps {
   value: string;
   onChange: (value: string) => void;
   onRunQuery: () => void;
-  schema?: {
-    tables: Array<{
-      table_name: string;
-      columns: Array<{
-        column_name: string;
-        data_type: string;
-      }>;
-    }>;
-  } | null;
+  schema?: DatabaseSchema | null;
   onEditorReady?: (insertAtCursor: (text: string) => void) => void;
   vimMode?: boolean;
 }

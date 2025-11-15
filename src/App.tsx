@@ -1,61 +1,20 @@
 import { useState, useEffect, useRef } from "react";
-import { SqlEditor } from "./components/SqlEditor";
 import { invoke } from "@tauri-apps/api/core";
-import { ResultsTableEnhanced } from "./components/ResultsTableEnhanced";
-import { QueryHistory } from "./components/QueryHistory";
-import { SchemaExplorer } from "./components/SchemaExplorer";
-import { SavedQueries } from "./components/SavedQueries";
-import { SaveQueryModal } from "./components/SaveQueryModal";
-import { CommandPalette } from "./components/CommandPalette";
-interface ColumnInfo {
-  column_name: string;
-  data_type: string;
-  is_nullable: string;
-}
-
-interface TableInfo {
-  table_name: string;
-  columns: ColumnInfo[];
-}
-
-interface DatabaseSchema {
-  tables: TableInfo[];
-}
-
-interface ConnectionConfig {
-  name: string;
-  host: string;
-  port: number;
-  database: string;
-  username: string;
-  password: string;
-}
-
-interface QueryResult {
-  columns: string[];
-  rows: any[][];
-  row_count: number;
-  execution_time_ms: number;
-}
-
-interface QueryHistoryEntry {
-  id: number;
-  query: string;
-  connection_name: string;
-  execution_time_ms: number;
-  row_count: number;
-  executed_at: string;
-}
-
-interface SavedQuery {
-  id: number;
-  name: string;
-  query: string;
-  description: string | null;
-  is_pinned: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import { SqlEditor } from "./components/editor/SqlEditor";
+import { ResultsTableEnhanced } from "./components/results/ResultsTableEnhanced";
+import { QueryHistory } from "./components/sidebar/QueryHistory";
+import { SchemaExplorer } from "./components/sidebar/SchemaExplorer";
+import { SavedQueries } from "./components/sidebar/SavedQueries";
+import { SaveQueryModal } from "./components/modals/SaveQueryModal";
+import { CommandPalette } from "./components/modals/CommandPalette";
+import { ProjectSettings } from "./components/modals/ProjectSettings";
+import type {
+  DatabaseSchema,
+  ConnectionConfig,
+  QueryResult,
+  QueryHistoryEntry,
+  SavedQuery,
+} from "./types";
 
 function App() {
   const [schema, setSchema] = useState<DatabaseSchema | null>(null);
@@ -68,6 +27,10 @@ function App() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [vimMode, setVimMode] = useState(false);
   const [compactView, setCompactView] = useState(false);
+  const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
+    null,
+  );
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
 
   const [config, setConfig] = useState<ConnectionConfig>({
     name: "New Connection",
@@ -85,37 +48,60 @@ function App() {
   const [status, setStatus] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [showNewConnection, setShowNewConnection] = useState(false);
-  const [insertAtCursor, setInsertAtCursor] = useState<((text: string) => void) | null>(null);
+  const [insertAtCursor, setInsertAtCursor] = useState<
+    ((text: string) => void) | null
+  >(null);
   const [showConnectionPicker, setShowConnectionPicker] = useState(false);
 
   useEffect(() => {
-    loadSavedConnections();
-    loadQueryHistory();
-    loadSavedQueries();
+    async function initialize() {
+      // Load project settings first
+      try {
+        await invoke("load_project_settings");
+      } catch (error) {
+        console.error("Failed to load project settings:", error);
+      }
+
+      // Then load data
+      loadSavedConnections();
+      loadQueryHistory();
+      loadSavedQueries();
+      loadCurrentProjectPath();
+    }
+    initialize();
   }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Cmd+Shift+C: Connection picker
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'c') {
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "c") {
         e.preventDefault();
         setShowConnectionPicker((prev) => !prev);
       }
       // Cmd+K: Command palette
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setShowCommandPalette((prev) => !prev);
       }
       // Close picker on Escape
-      if (e.key === 'Escape' && showConnectionPicker) {
+      if (e.key === "Escape" && showConnectionPicker) {
         setShowConnectionPicker(false);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showConnectionPicker]);
+
+  async function loadCurrentProjectPath() {
+    try {
+      const path = await invoke<string | null>("get_current_project_path");
+      setCurrentProjectPath(path);
+    } catch (error) {
+      console.error("Failed to load project path:", error);
+    }
+  }
 
   async function loadSavedConnections() {
     try {
@@ -187,15 +173,37 @@ function App() {
     setQuery(selectedQuery);
   }
 
+  async function handleProjectPathChanged() {
+    // Reload everything after project path changes
+    await loadCurrentProjectPath();
+    await loadSavedConnections();
+    await loadQueryHistory();
+    await loadSavedQueries();
+    setStatus("Project location changed - data reloaded");
+  }
+
   async function saveConnection() {
-    // Never save passwords - strip it out for security
+    // Save password to keychain
+    if (config.password) {
+      try {
+        await invoke("save_connection_password", {
+          connectionName: config.name,
+          password: config.password,
+        });
+      } catch (error) {
+        setStatus(`Failed to save password to keychain: ${error}`);
+        return;
+      }
+    }
+
+    // Never save passwords to JSON - strip it out for security
     const { password, ...configWithoutPassword } = config;
     const updated = [...connections, configWithoutPassword as ConnectionConfig];
     setConnections(updated);
 
     try {
       await invoke("save_connections", { connections: updated });
-      setStatus(`Saved connection "${config.name}"`);
+      setStatus(`Saved connection "${config.name}" (password stored securely)`);
       setShowNewConnection(false);
     } catch (error) {
       setStatus(`Failed to save: ${error}`);
@@ -207,6 +215,10 @@ function App() {
     setConnections(updated);
 
     try {
+      // Delete from keychain
+      await invoke("delete_connection_password", { connectionName: name });
+
+      // Delete from JSON
       await invoke("save_connections", { connections: updated });
       setStatus(`Deleted connection "${name}"`);
     } catch (error) {
@@ -214,8 +226,22 @@ function App() {
     }
   }
 
-  function selectConnection(conn: ConnectionConfig) {
-    setConfig({ ...conn, password: "" });
+  async function selectConnection(conn: ConnectionConfig) {
+    // Try to load password from keychain
+    let password = "";
+    try {
+      const storedPassword = await invoke<string | null>(
+        "get_connection_password",
+        {
+          connectionName: conn.name,
+        },
+      );
+      password = storedPassword || "";
+    } catch (error) {
+      console.error("Failed to load password from keychain:", error);
+    }
+
+    setConfig({ ...conn, password });
     setSelectedConnection(conn);
     setShowNewConnection(false);
     setConnected(false);
@@ -224,7 +250,10 @@ function App() {
 
   async function quickSwitchConnection(conn: ConnectionConfig) {
     // Switch connection and auto-connect if password is already in config
-    setConfig({ ...conn, password: config.name === conn.name ? config.password : "" });
+    setConfig({
+      ...conn,
+      password: config.name === conn.name ? config.password : "",
+    });
     setSelectedConnection(conn);
     setShowConnectionPicker(false);
     setConnected(false);
@@ -379,383 +408,420 @@ function App() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Query</h1>
-            <p className="text-gray-400 text-sm">Fast PostgreSQL client</p>
+            <div className="flex items-center gap-3">
+              <p className="text-gray-400 text-sm">Fast PostgreSQL client</p>
+              {currentProjectPath && (
+                <span className="text-xs text-blue-400 font-mono">
+                  📁 {currentProjectPath.split("/").pop()}
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* Connection Picker */}
-          <div className="relative">
+          {/* Connection Picker & Settings */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowConnectionPicker(!showConnectionPicker)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition"
+              onClick={() => {
+                console.log("Settings button clicked, showProjectPicker:", showProjectPicker);
+                setShowProjectPicker(true);
+              }}
+              className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition text-sm"
+              title="Project Settings"
             >
-              {connected && (
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              )}
-              <div className="text-left">
-                <p className="text-sm font-medium">
-                  {selectedConnection ? selectedConnection.name : "No connection"}
-                </p>
-                {selectedConnection && (
-                  <p className="text-xs text-gray-400">
-                    {selectedConnection.database}@{selectedConnection.host}
-                  </p>
-                )}
-              </div>
-              <svg
-                className="w-4 h-4 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
+              ⚙️
             </button>
 
-            {/* Dropdown */}
-            {showConnectionPicker && (
-              <div className="absolute right-0 mt-2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
-                <div className="p-3 border-b border-gray-700 flex items-center justify-between">
-                  <p className="text-sm font-semibold">Switch Connection</p>
-                  <kbd className="px-2 py-1 text-xs bg-gray-900 rounded border border-gray-700">
-                    ⌘⇧C
-                  </kbd>
-                </div>
-                <div className="max-h-96 overflow-y-auto">
-                  {connections.length === 0 ? (
-                    <div className="p-4 text-center text-sm text-gray-500">
-                      No saved connections
-                    </div>
-                  ) : (
-                    connections.map((conn) => (
-                      <button
-                        key={conn.name}
-                        onClick={() => quickSwitchConnection(conn)}
-                        className={`w-full text-left p-3 hover:bg-gray-700 transition border-b border-gray-700 last:border-b-0 ${
-                          selectedConnection?.name === conn.name
-                            ? "bg-gray-700"
-                            : ""
-                        }`}
-                      >
-                        <p className="text-sm font-medium">{conn.name}</p>
-                        <p className="text-xs text-gray-400">
-                          {conn.database}@{conn.host}:{conn.port}
-                        </p>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-12 gap-6">
-          {/* Sidebar */}
-          <div className="col-span-3 space-y-4">
-            {/* Connections */}
-            <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="font-semibold text-sm">Connections</h2>
-                <button
-                  onClick={() => setShowNewConnection(!showNewConnection)}
-                  className="text-blue-400 hover:text-blue-300 text-xl"
-                >
-                  +
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {connections.map((conn) => (
-                  <div
-                    key={conn.name}
-                    className="flex items-center justify-between p-2 bg-gray-900 rounded hover:bg-gray-700 transition cursor-pointer"
-                    onClick={() => selectConnection(conn)}
-                  >
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{conn.name}</p>
-                      <p className="text-xs text-gray-400">
-                        {conn.host}:{conn.port}
-                      </p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteConnection(conn.name);
-                      }}
-                      className="text-red-400 hover:text-red-300 text-xs px-2"
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-
-                {connections.length === 0 && (
-                  <p className="text-xs text-gray-500 text-center py-4">
-                    No saved connections
-                  </p>
+            {/* Connection Picker */}
+            <div className="relative">
+              <button
+                onClick={() => setShowConnectionPicker(!showConnectionPicker)}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg hover:bg-gray-700 transition"
+              >
+                {connected && (
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                 )}
-              </div>
-            </div>
-
-            {/* Connection Form */}
-            {(showNewConnection ||
-              selectedConnection ||
-              connections.length === 0) && (
-              <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-semibold text-sm">
-                    {showNewConnection
-                      ? "New Connection"
-                      : "Connection Details"}
-                  </h2>
-                  {connected && (
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <div className="text-left">
+                  <p className="text-sm font-medium">
+                    {selectedConnection
+                      ? selectedConnection.name
+                      : "No connection"}
+                  </p>
+                  {selectedConnection && (
+                    <p className="text-xs text-gray-400">
+                      {selectedConnection.database}@{selectedConnection.host}
+                    </p>
                   )}
                 </div>
+                <svg
+                  className="w-4 h-4 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
 
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      value={config.name}
-                      onChange={(e) =>
-                        setConfig({ ...config, name: e.target.value })
-                      }
-                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                    />
+              {/* Dropdown */}
+              {showConnectionPicker && (
+                <div className="absolute right-0 mt-2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50">
+                  <div className="p-3 border-b border-gray-700 flex items-center justify-between">
+                    <p className="text-sm font-semibold">Switch Connection</p>
+                    <kbd className="px-2 py-1 text-xs bg-gray-900 rounded border border-gray-700">
+                      ⌘⇧C
+                    </kbd>
                   </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">
-                      Host
-                    </label>
-                    <input
-                      type="text"
-                      value={config.host}
-                      onChange={(e) =>
-                        setConfig({ ...config, host: e.target.value })
-                      }
-                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">
-                      Port
-                    </label>
-                    <input
-                      type="number"
-                      value={config.port}
-                      onChange={(e) =>
-                        setConfig({
-                          ...config,
-                          port: parseInt(e.target.value) || 5432,
-                        })
-                      }
-                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">
-                      Database
-                    </label>
-                    <input
-                      type="text"
-                      value={config.database}
-                      onChange={(e) =>
-                        setConfig({ ...config, database: e.target.value })
-                      }
-                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">
-                      Username
-                    </label>
-                    <input
-                      type="text"
-                      value={config.username}
-                      onChange={(e) =>
-                        setConfig({ ...config, username: e.target.value })
-                      }
-                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs text-gray-400 mb-1">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      value={config.password}
-                      onChange={(e) =>
-                        setConfig({ ...config, password: e.target.value })
-                      }
-                      className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
-                      placeholder="Enter password"
-                    />
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={testConnection}
-                      disabled={loading}
-                      className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium disabled:opacity-50 transition"
-                    >
-                      {loading ? "Connecting..." : "Connect"}
-                    </button>
-
-                    {showNewConnection && (
-                      <button
-                        onClick={saveConnection}
-                        className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium transition"
-                      >
-                        Save
-                      </button>
+                  <div className="max-h-96 overflow-y-auto">
+                    {connections.length === 0 ? (
+                      <div className="p-4 text-center text-sm text-gray-500">
+                        No saved connections
+                      </div>
+                    ) : (
+                      connections.map((conn) => (
+                        <button
+                          key={conn.name}
+                          onClick={() => quickSwitchConnection(conn)}
+                          className={`w-full text-left p-3 hover:bg-gray-700 transition border-b border-gray-700 last:border-b-0 ${
+                            selectedConnection?.name === conn.name
+                              ? "bg-gray-700"
+                              : ""
+                          }`}
+                        >
+                          <p className="text-sm font-medium">{conn.name}</p>
+                          <p className="text-xs text-gray-400">
+                            {conn.database}@{conn.host}:{conn.port}
+                          </p>
+                        </button>
+                      ))
                     )}
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* Saved Queries */}
-            <SavedQueries
-              queries={savedQueries}
-              onSelectQuery={selectSavedQuery}
-              onDeleteQuery={handleDeleteSavedQuery}
-              onTogglePin={handleTogglePin}
-            />
-
-            {/* Query History */}
-            <QueryHistory
-              history={history}
-              onSelectQuery={selectQueryFromHistory}
-              onClearHistory={clearHistory}
-            />
-            {/* Schema Explorer */}
-            <SchemaExplorer
-              schema={schema}
-              onTableClick={handleTableClick}
-              onTableDoubleClick={handleTableDoubleClick}
-              onColumnClick={handleColumnClick}
-            />
+              )}
+            </div>
           </div>
 
-          {/* Main Area */}
-          <div className="col-span-9 space-y-4">
-            {/* Query Editor */}
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex-1">
-                <h2 className="font-semibold">Query Editor</h2>
-                <p className="text-xs text-gray-500 mt-1">
-                  Press{" "}
-                  <kbd className="px-1.5 py-0.5 bg-gray-900 rounded border border-gray-700">
-                    ⌘ Enter
-                  </kbd>{" "}
-                  to run • Double-click tables to query
-                  {vimMode && <span className="ml-2 text-green-500">• Vim mode active</span>}
-                </p>
+          <div className="grid grid-cols-12 gap-6">
+            {/* Sidebar */}
+            <div className="col-span-3 space-y-4">
+              {/* Connections */}
+              <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-semibold text-sm">Connections</h2>
+                  <button
+                    onClick={() => setShowNewConnection(!showNewConnection)}
+                    className="text-blue-400 hover:text-blue-300 text-xl"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {connections.map((conn) => (
+                    <div
+                      key={conn.name}
+                      className="flex items-center justify-between p-2 bg-gray-900 rounded hover:bg-gray-700 transition cursor-pointer"
+                      onClick={() => selectConnection(conn)}
+                    >
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">{conn.name}</p>
+                        <p className="text-xs text-gray-400">
+                          {conn.host}:{conn.port}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteConnection(conn.name);
+                        }}
+                        className="text-red-400 hover:text-red-300 text-xs px-2"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+
+                  {connections.length === 0 && (
+                    <p className="text-xs text-gray-500 text-center py-4">
+                      No saved connections
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2 items-center">
-                <button
-                  onClick={() => setVimMode(!vimMode)}
-                  className={`px-3 py-1 rounded text-xs font-mono transition ${
-                    vimMode
-                      ? "bg-green-600 hover:bg-green-700"
-                      : "bg-gray-700 hover:bg-gray-600"
-                  }`}
-                  title="Toggle Vim keybindings"
-                >
-                  {vimMode ? "VIM" : "vim"}
-                </button>
-                <button
-                  onClick={() => setShowSaveModal(true)}
-                  disabled={!query.trim()}
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium disabled:opacity-50 transition"
-                >
-                  Save Query
-                </button>
-                <button
-                  onClick={executeQuery}
-                  disabled={loading || !connected}
-                  className="px-4 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm font-medium disabled:opacity-50 transition"
-                >
-                  {loading ? "Running..." : "Run Query"}
-                </button>
-              </div>
-            </div>
-            <div className="border border-gray-700 rounded overflow-hidden">
-              <SqlEditor
-                value={query}
-                onChange={setQuery}
-                onRunQuery={executeQuery}
+
+              {/* Connection Form */}
+              {(showNewConnection ||
+                selectedConnection ||
+                connections.length === 0) && (
+                <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-sm">
+                      {showNewConnection
+                        ? "New Connection"
+                        : "Connection Details"}
+                    </h2>
+                    {connected && (
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Name
+                      </label>
+                      <input
+                        type="text"
+                        value={config.name}
+                        onChange={(e) =>
+                          setConfig({ ...config, name: e.target.value })
+                        }
+                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Host
+                      </label>
+                      <input
+                        type="text"
+                        value={config.host}
+                        onChange={(e) =>
+                          setConfig({ ...config, host: e.target.value })
+                        }
+                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Port
+                      </label>
+                      <input
+                        type="number"
+                        value={config.port}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            port: parseInt(e.target.value) || 5432,
+                          })
+                        }
+                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Database
+                      </label>
+                      <input
+                        type="text"
+                        value={config.database}
+                        onChange={(e) =>
+                          setConfig({ ...config, database: e.target.value })
+                        }
+                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        value={config.username}
+                        onChange={(e) =>
+                          setConfig({ ...config, username: e.target.value })
+                        }
+                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="password"
+                        value={config.password}
+                        onChange={(e) =>
+                          setConfig({ ...config, password: e.target.value })
+                        }
+                        className="w-full px-3 py-1.5 text-sm bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none"
+                        placeholder="Enter password"
+                      />
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={testConnection}
+                        disabled={loading}
+                        className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium disabled:opacity-50 transition"
+                      >
+                        {loading ? "Connecting..." : "Connect"}
+                      </button>
+
+                      {showNewConnection && (
+                        <button
+                          onClick={saveConnection}
+                          className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-sm font-medium transition"
+                        >
+                          Save
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Saved Queries */}
+              <SavedQueries
+                queries={savedQueries}
+                onSelectQuery={selectSavedQuery}
+                onDeleteQuery={handleDeleteSavedQuery}
+                onTogglePin={handleTogglePin}
+              />
+
+              {/* Query History */}
+              <QueryHistory
+                history={history}
+                onSelectQuery={selectQueryFromHistory}
+                onClearHistory={clearHistory}
+              />
+              {/* Schema Explorer */}
+              <SchemaExplorer
                 schema={schema}
-                onEditorReady={(insertFn) => setInsertAtCursor(() => insertFn)}
-                vimMode={vimMode}
+                onTableClick={handleTableClick}
+                onTableDoubleClick={handleTableDoubleClick}
+                onColumnClick={handleColumnClick}
               />
             </div>
 
-            {status && (
-              <div
-                className={`mt-3 p-3 rounded text-sm ${
-                  status.includes("Error") ||
-                  status.includes("failed") ||
-                  status.includes("Please")
-                    ? "bg-red-900/20 border border-red-700 text-red-300"
-                    : "bg-blue-900/20 border border-blue-700 text-blue-300"
-                }`}
-              >
-                {status}
+            {/* Main Area */}
+            <div className="col-span-9 space-y-4">
+              {/* Query Editor */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex-1">
+                  <h2 className="font-semibold">Query Editor</h2>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Press{" "}
+                    <kbd className="px-1.5 py-0.5 bg-gray-900 rounded border border-gray-700">
+                      ⌘ Enter
+                    </kbd>{" "}
+                    to run • Double-click tables to query
+                    {vimMode && (
+                      <span className="ml-2 text-green-500">
+                        • Vim mode active
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="flex gap-2 items-center">
+                  <button
+                    onClick={() => setVimMode(!vimMode)}
+                    className={`px-3 py-1 rounded text-xs font-mono transition ${
+                      vimMode
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-gray-700 hover:bg-gray-600"
+                    }`}
+                    title="Toggle Vim keybindings"
+                  >
+                    {vimMode ? "VIM" : "vim"}
+                  </button>
+                  <button
+                    onClick={() => setShowSaveModal(true)}
+                    disabled={!query.trim()}
+                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 rounded text-sm font-medium disabled:opacity-50 transition"
+                  >
+                    Save Query
+                  </button>
+                  <button
+                    onClick={executeQuery}
+                    disabled={loading || !connected}
+                    className="px-4 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm font-medium disabled:opacity-50 transition"
+                  >
+                    {loading ? "Running..." : "Run Query"}
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
+              <div className="border border-gray-700 rounded overflow-hidden">
+                <SqlEditor
+                  value={query}
+                  onChange={setQuery}
+                  onRunQuery={executeQuery}
+                  schema={schema}
+                  onEditorReady={(insertFn) =>
+                    setInsertAtCursor(() => insertFn)
+                  }
+                  vimMode={vimMode}
+                />
+              </div>
 
-          {/* Results */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Results</h2>
-              {result && (
-                <button
-                  onClick={() => setCompactView(!compactView)}
-                  className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition"
-                  title={compactView ? "Expand view" : "Compact view"}
+              {status && (
+                <div
+                  className={`mt-3 p-3 rounded text-sm ${
+                    status.includes("Error") ||
+                    status.includes("failed") ||
+                    status.includes("Please")
+                      ? "bg-red-900/20 border border-red-700 text-red-300"
+                      : "bg-blue-900/20 border border-blue-700 text-blue-300"
+                  }`}
                 >
-                  {compactView ? "Expand" : "Compact"}
-                </button>
+                  {status}
+                </div>
               )}
             </div>
-            <ResultsTableEnhanced result={result} compact={compactView} />
+
+            {/* Results */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="font-semibold">Results</h2>
+                {result && (
+                  <button
+                    onClick={() => setCompactView(!compactView)}
+                    className="px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition"
+                    title={compactView ? "Expand view" : "Compact view"}
+                  >
+                    {compactView ? "Expand" : "Compact"}
+                  </button>
+                )}
+              </div>
+              <ResultsTableEnhanced result={result} compact={compactView} />
+            </div>
           </div>
         </div>
+
+        {/* Save Query Modal */}
+        <SaveQueryModal
+          isOpen={showSaveModal}
+          onClose={() => setShowSaveModal(false)}
+          onSave={handleSaveQuery}
+          currentQuery={query}
+        />
+
+        {/* Command Palette */}
+        <CommandPalette
+          isOpen={showCommandPalette}
+          onClose={() => setShowCommandPalette(false)}
+          schema={schema}
+          history={history}
+          onExecuteQuery={handleCommandPaletteQuery}
+        />
+
+        {/* Project Settings */}
+        <ProjectSettings
+          isOpen={showProjectPicker}
+          onClose={() => setShowProjectPicker(false)}
+          currentPath={currentProjectPath}
+          onPathChanged={handleProjectPathChanged}
+        />
       </div>
-
-      {/* Save Query Modal */}
-      <SaveQueryModal
-        isOpen={showSaveModal}
-        onClose={() => setShowSaveModal(false)}
-        onSave={handleSaveQuery}
-        currentQuery={query}
-      />
-
-      {/* Command Palette */}
-      <CommandPalette
-        isOpen={showCommandPalette}
-        onClose={() => setShowCommandPalette(false)}
-        schema={schema}
-        history={history}
-        onExecuteQuery={handleCommandPaletteQuery}
-      />
     </div>
   );
 }

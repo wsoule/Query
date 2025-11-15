@@ -1,25 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-
-interface TableInfo {
-  table_name: string;
-  columns: Array<{
-    column_name: string;
-    data_type: string;
-  }>;
-}
-
-interface DatabaseSchema {
-  tables: TableInfo[];
-}
-
-interface QueryHistoryEntry {
-  id: number;
-  query: string;
-  connection_name: string;
-  execution_time_ms: number;
-  row_count: number;
-  executed_at: string;
-}
+import type { DatabaseSchema, QueryHistoryEntry } from '../../types';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -110,7 +90,7 @@ ORDER BY ordinal_position;`,
   }
 
   // Add recent queries from history
-  history.slice(0, 5).forEach((entry, idx) => {
+  history.slice(0, 5).forEach((entry) => {
     commands.push({
       id: `history-${entry.id}`,
       label: entry.query.substring(0, 50) + (entry.query.length > 50 ? "..." : ""),
@@ -206,7 +186,7 @@ ORDER BY ordinal_position;`,
                   <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-900">
                     TABLE COMMANDS
                   </div>
-                  {groupedCommands.table.map((cmd, idx) => {
+                  {groupedCommands.table.map((cmd) => {
                     const globalIdx = flatCommands.indexOf(cmd);
                     return (
                       <button

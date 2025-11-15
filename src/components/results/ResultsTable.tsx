@@ -1,9 +1,4 @@
-interface QueryResult {
-  columns: string[];
-  rows: any[][];
-  row_count: number;
-  execution_time_ms: number;
-}
+import type { QueryResult } from '../../types';
 
 interface ResultsTableProps {
   result: QueryResult | null;

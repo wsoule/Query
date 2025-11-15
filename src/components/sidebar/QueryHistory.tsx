@@ -1,11 +1,4 @@
-interface QueryHistoryEntry {
-  id: number;
-  query: string;
-  connection_name: string;
-  execution_time_ms: number;
-  row_count: number;
-  executed_at: string;
-}
+import type { QueryHistoryEntry } from '../../types';
 
 interface QueryHistoryProps {
   history: QueryHistoryEntry[];

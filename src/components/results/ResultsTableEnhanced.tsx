@@ -9,13 +9,7 @@ import {
   SortingState,
   ColumnFiltersState,
 } from "@tanstack/react-table";
-
-interface QueryResult {
-  columns: string[];
-  rows: any[][];
-  row_count: number;
-  execution_time_ms: number;
-}
+import type { QueryResult } from '../../types';
 
 interface ResultsTableEnhancedProps {
   result: QueryResult | null;

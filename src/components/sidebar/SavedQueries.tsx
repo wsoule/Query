@@ -1,12 +1,4 @@
-interface SavedQuery {
-  id: number;
-  name: string;
-  query: string;
-  description: string | null;
-  is_pinned: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import type { SavedQuery } from '../../types';
 
 interface SavedQueriesProps {
   queries: SavedQuery[];
