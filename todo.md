@@ -28,11 +28,11 @@
 ### feats
 - [ ] cancel query
 - [ ] settings page instead of a modal - vim mode should be in here
-- [ ] update dialog to look better (use shadcn)
+- [ ] update dialog to look better (use shadcn) - use shadcn command for the quic action dialog
 - [ ] inline data editing
 - [ ] search & filter within results
-- [ ] better git integration (commit, push, pull in app)
-- [ ] read only mode
+- [ ] better git integration (commit, push, pull in app) - **currently commented out, needs fixing**
+- [ ] read only mode implementation: only allow select, describe, and count queries - store this in the config for the specific environment, for example, maybe whenever i want to use prod env, i want it set to read only
 - [ ] variables (maybe not needed?)
 - [ ] ERD
 - [ ] schema comparison

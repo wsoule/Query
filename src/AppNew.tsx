@@ -11,14 +11,7 @@ import { Button } from "./components/ui/button";
 import { Separator } from "./components/ui/separator";
 import { Badge } from "./components/ui/badge";
 import { ScrollArea } from "./components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "./components/ui/select";
-import { Play, Database, Save, Settings as SettingsIcon, Plus, Download } from "lucide-react";
+import { Play, Save, Settings as SettingsIcon, Download, Lock, Unlock, LayoutGrid, Command } from "lucide-react";
 import { SqlEditor } from "./components/editor/SqlEditor";
 import { ResultsTableEnhanced } from "./components/results/ResultsTableEnhanced";
 import { SaveQueryModal } from "./components/modals/SaveQueryModal";
@@ -44,6 +37,8 @@ export default function AppNew() {
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [vimMode, setVimMode] = useState(false);
   const [compactView, setCompactView] = useState(false);
+  const [readOnlyMode, setReadOnlyMode] = useState(false);
+  const [layoutDirection, setLayoutDirection] = useState<"vertical" | "horizontal">("vertical");
   const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
     null,
   );
@@ -195,33 +190,6 @@ export default function AppNew() {
     }
   }, [connections]);
 
-  const testConnection = useCallback(async () => {
-    setLoading(true);
-    setStatus("");
-
-    try {
-      const result = await invoke<string>("test_postgres_connection", {
-        config,
-      });
-      setStatus(result);
-      setConnected(true);
-      connectedRef.current = true;
-
-      // Load schema after successful connection
-      const schemaData = await invoke<DatabaseSchema>("get_database_schema", {
-        config,
-      });
-      setSchema(schemaData);
-    } catch (error) {
-      setStatus(`${error}`);
-      setConnected(false);
-      connectedRef.current = false;
-      setSchema(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [config]);
-
   const runQuery = useCallback(async () => {
     if (!connectedRef.current) {
       setStatus("Please connect to a database first");
@@ -270,42 +238,6 @@ export default function AppNew() {
     setQuery(`SELECT * FROM ${tableName} LIMIT 100;`);
   }, []);
 
-  const handleTableDoubleClick = useCallback(async (tableName: string) => {
-    const newQuery = `SELECT * FROM ${tableName} LIMIT 100;`;
-    setQuery(newQuery);
-
-    if (!connectedRef.current) {
-      setStatus("Please connect to a database first");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const queryResult = await invoke<QueryResult>("execute_query", {
-        config,
-        query: newQuery,
-      });
-
-      setResult(queryResult);
-      setStatus(
-        `Query executed - ${queryResult.row_count} rows in ${queryResult.execution_time_ms}ms`,
-      );
-
-      await invoke("save_query_to_history", {
-        query: newQuery,
-        connectionName: config.name,
-        executionTimeMs: queryResult.execution_time_ms,
-        rowCount: queryResult.row_count,
-      });
-
-      await loadQueryHistory();
-    } catch (error) {
-      setStatus(`Error: ${error}`);
-    } finally {
-      setLoading(false);
-    }
-  }, [config, loadQueryHistory]);
-
   const handleColumnClick = useCallback((tableName: string, columnName: string) => {
     if (insertAtCursor) {
       insertAtCursor(`${tableName}.${columnName}`);
@@ -322,14 +254,33 @@ export default function AppNew() {
     }
   }, [loadQueryHistory]);
 
-  const handleOpenSettings = useCallback(() => {
-    setShowProjectPicker(true);
-  }, []);
-
-  const handleConnectionChange = useCallback((value: string) => {
+  const handleConnectionChange = useCallback(async (value: string) => {
     const conn = connections.find((c) => c.name === value);
     if (conn) {
       setConfig(conn);
+      // Auto-connect when switching connections
+      setLoading(true);
+      setStatus("");
+      try {
+        const result = await invoke<string>("test_postgres_connection", {
+          config: conn,
+        });
+        setStatus(result);
+        setConnected(true);
+        connectedRef.current = true;
+        // Load schema after successful connection
+        const dbSchema = await invoke<DatabaseSchema>("get_database_schema", {
+          config: conn,
+        });
+        setSchema(dbSchema);
+      } catch (error) {
+        setStatus(`Connection failed: ${error}`);
+        setConnected(false);
+        connectedRef.current = false;
+        setSchema(null);
+      } finally {
+        setLoading(false);
+      }
     }
   }, [connections]);
 
@@ -397,71 +348,75 @@ export default function AppNew() {
           schema={schema}
           history={history}
           savedQueries={savedQueries}
+          connections={connections}
+          currentConnection={config}
+          onConnectionChange={handleConnectionChange}
           onTableClick={handleTableClick}
-          onTableDoubleClick={handleTableDoubleClick}
           onColumnClick={handleColumnClick}
           onSelectQuery={setQuery}
           onDeleteQuery={handleDeleteSavedQuery}
           onTogglePin={handleTogglePin}
           onClearHistory={handleClearHistory}
-          onOpenSettings={handleOpenSettings}
+          onNewConnection={() => setShowConnectionModal(true)}
         />
 
         <SidebarInset className="flex flex-col">
           {/* Header */}
-          <header className="flex h-14 items-center gap-4 border-b px-4">
+          <header className="flex h-14 items-center gap-3 border-b px-4">
+            {/* Left side */}
             <SidebarTrigger />
             <Separator orientation="vertical" className="h-6" />
+
+            {/* Connection status */}
             <div className="flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              <span className="font-semibold">Query</span>
+              <Badge
+                variant="outline"
+                className={`h-2 w-2 rounded-full p-0 ${
+                  connected ? "bg-green-500" : "bg-gray-500"
+                }`}
+              />
+              <span className="text-sm font-medium">{config.name || "No connection"}</span>
             </div>
+
+            <Separator orientation="vertical" className="h-6" />
+
+            {/* Read-only mode toggle */}
+            <Button
+              variant={readOnlyMode ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setReadOnlyMode(!readOnlyMode)}
+              title={readOnlyMode ? "Read-only mode active" : "Enable read-only mode"}
+              className="h-8 gap-2"
+            >
+              {readOnlyMode ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+              <span className="text-xs">Read-only</span>
+            </Button>
+
+            {/* Right side */}
             <div className="ml-auto flex items-center gap-2">
-              <Select
-                value={config.name}
-                onValueChange={handleConnectionChange}
-              >
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Select connection" />
-                </SelectTrigger>
-                <SelectContent>
-                  {connections.map((conn) => (
-                    <SelectItem key={conn.name} value={conn.name}>
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant="outline"
-                          className={`h-2 w-2 rounded-full p-0 ${
-                            connected && config.name === conn.name
-                              ? "bg-green-500"
-                              : "bg-gray-500"
-                          }`}
-                        />
-                        {conn.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowConnectionModal(true)}
-                title="Add new connection"
+                onClick={() => setLayoutDirection(layoutDirection === "vertical" ? "horizontal" : "vertical")}
+                title={`Switch to ${layoutDirection === "vertical" ? "horizontal" : "vertical"} layout`}
+                className="h-8 w-8"
               >
-                <Plus className="h-4 w-4" />
+                <LayoutGrid className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={testConnection}
-                disabled={loading}
+                onClick={() => setShowCommandPalette(true)}
+                className="h-8 gap-1.5"
               >
-                Connect
+                <Command className="h-3 w-3" />
+                <span className="text-xs font-mono">⌘K</span>
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowProjectPicker(true)}
+                className="h-8 w-8"
               >
                 <SettingsIcon className="h-4 w-4" />
               </Button>
@@ -470,7 +425,7 @@ export default function AppNew() {
 
           {/* Main Content with Resizable Panels */}
           <div className="flex-1 overflow-hidden">
-            <ResizablePanelGroup direction="vertical">
+            <ResizablePanelGroup direction={layoutDirection}>
               {/* SQL Editor Panel */}
               <ResizablePanel defaultSize={50} minSize={30}>
                 <div className="flex h-full flex-col">

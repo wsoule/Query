@@ -1,10 +1,32 @@
 import type { SavedQuery } from '../../types';
+import { Badge } from '../ui/badge';
 
 interface SavedQueriesProps {
   queries: SavedQuery[];
   onSelectQuery: (query: string) => void;
   onDeleteQuery: (id: number) => void;
   onTogglePin: (id: number) => void;
+}
+
+// Helper to detect query type and return tag config
+function getQueryTag(query: string): { label: string; className: string } {
+  const normalizedQuery = query.trim().toUpperCase();
+
+  if (normalizedQuery.startsWith('SELECT')) {
+    return { label: 'SEL', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30' };
+  } else if (normalizedQuery.startsWith('INSERT')) {
+    return { label: 'INS', className: 'bg-green-500/20 text-green-400 border-green-500/30' };
+  } else if (normalizedQuery.startsWith('UPDATE')) {
+    return { label: 'UPD', className: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
+  } else if (normalizedQuery.startsWith('DELETE')) {
+    return { label: 'DEL', className: 'bg-red-500/20 text-red-400 border-red-500/30' };
+  } else if (normalizedQuery.startsWith('CREATE')) {
+    return { label: 'CRE', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30' };
+  } else if (normalizedQuery.startsWith('DROP') || normalizedQuery.startsWith('ALTER')) {
+    return { label: 'DDL', className: 'bg-orange-500/20 text-orange-400 border-orange-500/30' };
+  }
+
+  return { label: 'SQL', className: 'bg-gray-500/20 text-gray-400 border-gray-500/30' };
 }
 
 export function SavedQueries({
@@ -16,7 +38,10 @@ export function SavedQueries({
   const pinnedQueries = queries.filter((q) => q.is_pinned);
   const unpinnedQueries = queries.filter((q) => !q.is_pinned);
 
-  const renderQuery = (savedQuery: SavedQuery) => (
+  const renderQuery = (savedQuery: SavedQuery) => {
+    const tag = getQueryTag(savedQuery.query);
+
+    return (
     <div
       key={savedQuery.id}
       className="group p-3 hover:bg-gray-700 rounded cursor-pointer border-b border-gray-700 last:border-b-0"
@@ -27,6 +52,12 @@ export function SavedQueries({
           onClick={() => onSelectQuery(savedQuery.query)}
         >
           <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={`text-[10px] font-mono px-1.5 py-0 h-4 ${tag.className}`}
+            >
+              {tag.label}
+            </Badge>
             {savedQuery.is_pinned && (
               <span className="text-yellow-500 text-xs">📌</span>
             )}
@@ -66,6 +97,7 @@ export function SavedQueries({
       </div>
     </div>
   );
+  };
 
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">

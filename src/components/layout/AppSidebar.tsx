@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useState } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -7,126 +7,429 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarGroup,
+  SidebarGroupContent,
 } from "../ui/sidebar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "../ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { ScrollArea } from "../ui/scroll-area";
-import { Settings } from "lucide-react";
-import { SchemaExplorer } from "../sidebar/SchemaExplorer";
-import { QueryHistory } from "../sidebar/QueryHistory";
-import { SavedQueries } from "../sidebar/SavedQueries";
+import {
+  GitBranch,
+  Plus,
+  Minus,
+  ChevronRight,
+  Database,
+  History as HistoryIcon,
+  BookmarkIcon,
+} from "lucide-react";
+import { Badge } from "../ui/badge";
 import type {
   DatabaseSchema,
   QueryHistoryEntry,
   SavedQuery,
+  ConnectionConfig,
 } from "../../types";
 
 interface AppSidebarProps {
   schema: DatabaseSchema | null;
   history: QueryHistoryEntry[];
   savedQueries: SavedQuery[];
+  connections: ConnectionConfig[];
+  currentConnection: ConnectionConfig;
+  onConnectionChange: (name: string) => void;
   onTableClick: (tableName: string) => void;
-  onTableDoubleClick: (tableName: string) => void;
   onColumnClick: (tableName: string, columnName: string) => void;
   onSelectQuery: (query: string) => void;
   onDeleteQuery: (id: number) => void;
   onTogglePin: (id: number) => void;
   onClearHistory: () => void;
-  onOpenSettings: () => void;
+  onNewConnection: () => void;
+}
+
+// Helper to get query type tag
+function getQueryTag(query: string): { label: string; className: string } {
+  const normalizedQuery = query.trim().toUpperCase();
+  if (normalizedQuery.startsWith("SELECT")) {
+    return {
+      label: "SEL",
+      className: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    };
+  } else if (normalizedQuery.startsWith("INSERT")) {
+    return {
+      label: "INS",
+      className: "bg-green-500/20 text-green-400 border-green-500/30",
+    };
+  } else if (normalizedQuery.startsWith("UPDATE")) {
+    return {
+      label: "UPD",
+      className: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+    };
+  } else if (normalizedQuery.startsWith("DELETE")) {
+    return {
+      label: "DEL",
+      className: "bg-red-500/20 text-red-400 border-red-500/30",
+    };
+  }
+  return {
+    label: "SQL",
+    className: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+  };
 }
 
 export const AppSidebar = memo(function AppSidebar({
   schema,
   history,
   savedQueries,
+  connections,
+  currentConnection,
+  onConnectionChange,
   onTableClick,
-  onTableDoubleClick,
   onColumnClick,
   onSelectQuery,
   onDeleteQuery,
   onTogglePin,
   onClearHistory,
-  onOpenSettings,
+  onNewConnection,
 }: AppSidebarProps) {
+  const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+
+  const toggleTable = (tableName: string) => {
+    const newExpanded = new Set(expandedTables);
+    if (newExpanded.has(tableName)) {
+      newExpanded.delete(tableName);
+    } else {
+      newExpanded.add(tableName);
+    }
+    setExpandedTables(newExpanded);
+  };
+
+  const pinnedQueries = savedQueries.filter((q) => q.is_pinned);
+  const unpinnedQueries = savedQueries.filter((q) => !q.is_pinned);
+
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-4 py-3">
-        <h2 className="text-lg font-semibold">Query</h2>
+      <SidebarHeader className="border-b px-3 py-3">
+        <div className="flex items-center gap-2 mb-2">
+          <Database className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold">Query</h2>
+        </div>
+        <div className="space-y-1">
+          <div className="text-xs text-muted-foreground">Environment</div>
+          <Select value={currentConnection.name} onValueChange={onConnectionChange}>
+            <SelectTrigger className="w-full h-8">
+              <SelectValue placeholder="Select connection" />
+            </SelectTrigger>
+            <SelectContent>
+              {connections.map((conn) => (
+                <SelectItem key={conn.name} value={conn.name}>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`h-2 w-2 rounded-full ${
+                        conn.name === currentConnection.name
+                          ? "bg-green-500"
+                          : "bg-gray-500"
+                      }`}
+                    />
+                    {conn.name}
+                  </div>
+                </SelectItem>
+              ))}
+              <SelectItem value="__new__" onSelect={onNewConnection}>
+                <div className="flex items-center gap-2">
+                  <Plus className="h-3 w-3" />
+                  <span>New Connection</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
-        <Tabs defaultValue="schema" className="flex-1">
-          <div className="border-b px-2">
-            <TabsList className="grid w-full grid-cols-3 bg-transparent">
-              <TabsTrigger
-                value="schema"
-                className="gap-2 data-[state=active]:bg-muted"
-              >
-                Schema
-              </TabsTrigger>
-              <TabsTrigger
-                value="saved"
-                className="gap-2 data-[state=active]:bg-muted"
-              >
-                Saved
-              </TabsTrigger>
-              <TabsTrigger
-                value="history"
-                className="gap-2 data-[state=active]:bg-muted"
-              >
-                History
-              </TabsTrigger>
-            </TabsList>
-          </div>
+        <ScrollArea className="h-[calc(100vh-240px)]">
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {/* Schema Section */}
+                <Collapsible defaultOpen className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton>
+                        <Database className="h-4 w-4" />
+                        <span>Schema</span>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {schema?.tables.length || 0}
+                        </span>
+                        <Plus className="ml-2 h-4 w-4 group-data-[state=open]/collapsible:hidden" />
+                        <Minus className="ml-2 h-4 w-4 group-data-[state=closed]/collapsible:hidden" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {schema && schema.tables.length > 0 ? (
+                          schema.tables.map((table) => (
+                            <Collapsible
+                              key={table.table_name}
+                              open={expandedTables.has(table.table_name)}
+                              onOpenChange={() => toggleTable(table.table_name)}
+                              className="group/table"
+                            >
+                              <SidebarMenuSubItem>
+                                <CollapsibleTrigger asChild>
+                                  <SidebarMenuSubButton>
+                                    <ChevronRight className="h-3 w-3 transition-transform group-data-[state=open]/table:rotate-90" />
+                                    <span className="font-mono text-xs">
+                                      {table.table_name}
+                                    </span>
+                                    <span className="ml-auto text-xs text-muted-foreground">
+                                      {table.columns.length}
+                                    </span>
+                                  </SidebarMenuSubButton>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="ml-6 mt-1 space-y-1">
+                                    {/* Quick Actions */}
+                                    <div className="flex gap-1 px-2">
+                                      <Badge
+                                        className="cursor-pointer hover:opacity-80 text-[10px] px-1.5 py-0 h-5 bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onTableClick(table.table_name);
+                                        }}
+                                      >
+                                        SEL
+                                      </Badge>
+                                      <Badge className="cursor-pointer hover:opacity-80 text-[10px] px-1.5 py-0 h-5 bg-green-500/20 text-green-400 border-green-500/30">
+                                        INS
+                                      </Badge>
+                                      <Badge className="cursor-pointer hover:opacity-80 text-[10px] px-1.5 py-0 h-5 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                                        UPD
+                                      </Badge>
+                                      <Badge className="cursor-pointer hover:opacity-80 text-[10px] px-1.5 py-0 h-5 bg-red-500/20 text-red-400 border-red-500/30">
+                                        DEL
+                                      </Badge>
+                                    </div>
+                                    {/* Columns */}
+                                    {table.columns.map((col) => (
+                                      <div
+                                        key={col.column_name}
+                                        className="flex items-center justify-between px-2 py-1 hover:bg-muted rounded cursor-pointer text-xs"
+                                        onClick={() =>
+                                          onColumnClick(
+                                            table.table_name,
+                                            col.column_name,
+                                          )
+                                        }
+                                      >
+                                        <span className="font-mono text-muted-foreground">
+                                          {col.column_name}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {col.data_type}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </CollapsibleContent>
+                              </SidebarMenuSubItem>
+                            </Collapsible>
+                          ))
+                        ) : (
+                          <div className="px-4 py-2 text-xs text-muted-foreground text-center">
+                            Connect to see tables
+                          </div>
+                        )}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
 
-          <TabsContent value="schema" className="mt-0 flex-1">
-            <ScrollArea className="h-[calc(100vh-180px)]">
-              <div className="p-4">
-                <SchemaExplorer
-                  schema={schema}
-                  onTableClick={onTableClick}
-                  onTableDoubleClick={onTableDoubleClick}
-                  onColumnClick={onColumnClick}
-                />
-              </div>
-            </ScrollArea>
-          </TabsContent>
+                {/* Saved Queries Section */}
+                <Collapsible className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton>
+                        <BookmarkIcon className="h-4 w-4" />
+                        <span>Saved Queries</span>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {savedQueries.length}
+                        </span>
+                        <Plus className="ml-2 h-4 w-4 group-data-[state=open]/collapsible:hidden" />
+                        <Minus className="ml-2 h-4 w-4 group-data-[state=closed]/collapsible:hidden" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {savedQueries.length === 0 ? (
+                          <div className="px-4 py-2 text-xs text-muted-foreground text-center">
+                            No saved queries
+                          </div>
+                        ) : (
+                          <>
+                            {pinnedQueries.map((savedQuery) => {
+                              const tag = getQueryTag(savedQuery.query);
+                              return (
+                                <SidebarMenuSubItem key={savedQuery.id}>
+                                  <SidebarMenuSubButton
+                                    onClick={() => onSelectQuery(savedQuery.query)}
+                                  >
+                                    <Badge
+                                      className={`text-[10px] px-1.5 py-0 h-4 ${tag.className}`}
+                                    >
+                                      {tag.label}
+                                    </Badge>
+                                    {savedQuery.is_pinned && (
+                                      <span className="text-yellow-500 text-xs">📌</span>
+                                    )}
+                                    <span className="flex-1 truncate text-xs">
+                                      {savedQuery.name}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onTogglePin(savedQuery.id);
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 text-xs"
+                                    >
+                                      📍
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteQuery(savedQuery.id);
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 text-xs hover:text-red-400"
+                                    >
+                                      ×
+                                    </button>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              );
+                            })}
+                            {unpinnedQueries.map((savedQuery) => {
+                              const tag = getQueryTag(savedQuery.query);
+                              return (
+                                <SidebarMenuSubItem key={savedQuery.id}>
+                                  <SidebarMenuSubButton
+                                    onClick={() => onSelectQuery(savedQuery.query)}
+                                  >
+                                    <Badge
+                                      className={`text-[10px] px-1.5 py-0 h-4 ${tag.className}`}
+                                    >
+                                      {tag.label}
+                                    </Badge>
+                                    <span className="flex-1 truncate text-xs">
+                                      {savedQuery.name}
+                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onTogglePin(savedQuery.id);
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 text-xs"
+                                    >
+                                      📍
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteQuery(savedQuery.id);
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 text-xs hover:text-red-400"
+                                    >
+                                      ×
+                                    </button>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              );
+                            })}
+                          </>
+                        )}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
 
-          <TabsContent value="saved" className="mt-0 flex-1">
-            <ScrollArea className="h-[calc(100vh-180px)]">
-              <div className="p-4">
-                <SavedQueries
-                  queries={savedQueries}
-                  onSelectQuery={onSelectQuery}
-                  onDeleteQuery={onDeleteQuery}
-                  onTogglePin={onTogglePin}
-                />
-              </div>
-            </ScrollArea>
-          </TabsContent>
-
-          <TabsContent value="history" className="mt-0 flex-1">
-            <ScrollArea className="h-[calc(100vh-180px)]">
-              <div className="p-4">
-                <QueryHistory
-                  history={history}
-                  onSelectQuery={onSelectQuery}
-                  onClearHistory={onClearHistory}
-                />
-              </div>
-            </ScrollArea>
-          </TabsContent>
-        </Tabs>
+                {/* History Section */}
+                <Collapsible className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton>
+                        <HistoryIcon className="h-4 w-4" />
+                        <span>History</span>
+                        <span className="ml-auto text-xs text-muted-foreground">
+                          {history.length}
+                        </span>
+                        <Plus className="ml-2 h-4 w-4 group-data-[state=open]/collapsible:hidden" />
+                        <Minus className="ml-2 h-4 w-4 group-data-[state=closed]/collapsible:hidden" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {history.length === 0 ? (
+                          <div className="px-4 py-2 text-xs text-muted-foreground text-center">
+                            No history yet
+                          </div>
+                        ) : (
+                          <>
+                            {history.map((entry) => (
+                              <SidebarMenuSubItem key={entry.id}>
+                                <SidebarMenuSubButton
+                                  onClick={() => onSelectQuery(entry.query)}
+                                >
+                                  <span className="flex-1 truncate text-xs font-mono">
+                                    {entry.query}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {entry.execution_time_ms}ms
+                                  </span>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            ))}
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton
+                                onClick={onClearHistory}
+                                className="text-xs text-red-400 hover:text-red-300"
+                              >
+                                Clear History
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          </>
+                        )}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </ScrollArea>
       </SidebarContent>
 
       <SidebarFooter className="border-t">
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton onClick={onOpenSettings}>
-              <Settings className="h-4 w-4" />
-              <span>Settings</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {/* Git Info - TODO: Add interactive git actions later */}
+        <div className="px-3 py-3">
+          <div className="flex items-center gap-2 text-sm">
+            <GitBranch className="h-4 w-4 text-muted-foreground" />
+            <div className="flex-1">
+              <div className="font-medium text-sm">main</div>
+              <div className="text-xs text-muted-foreground">No changes</div>
+            </div>
+          </div>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
