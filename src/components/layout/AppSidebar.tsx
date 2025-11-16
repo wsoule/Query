@@ -12,6 +12,7 @@ import {
   SidebarMenuSubItem,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarRail,
 } from "../ui/sidebar";
 import {
   Collapsible,
@@ -35,7 +36,7 @@ import {
   History as HistoryIcon,
   BookmarkIcon,
 } from "lucide-react";
-import { Badge } from "../ui/badge";
+import { Kbd } from "../ui/kbd";
 import type {
   DatabaseSchema,
   QueryHistoryEntry,
@@ -57,6 +58,9 @@ interface AppSidebarProps {
   onTogglePin: (id: number) => void;
   onClearHistory: () => void;
   onNewConnection: () => void;
+  onTableInsert?: (tableName: string) => void;
+  onTableUpdate?: (tableName: string) => void;
+  onTableDelete?: (tableName: string) => void;
 }
 
 // Helper to get query type tag
@@ -103,6 +107,9 @@ export const AppSidebar = memo(function AppSidebar({
   onTogglePin,
   onClearHistory,
   onNewConnection,
+  onTableInsert,
+  onTableUpdate,
+  onTableDelete,
 }: AppSidebarProps) {
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
 
@@ -203,24 +210,42 @@ export const AppSidebar = memo(function AppSidebar({
                                   <div className="ml-6 mt-1 space-y-1">
                                     {/* Quick Actions */}
                                     <div className="flex gap-1 px-2">
-                                      <Badge
-                                        className="cursor-pointer hover:opacity-80 text-[10px] px-1.5 py-0 h-5 bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                      <Kbd
+                                        className="cursor-pointer hover:bg-blue-500/30 text-[10px] px-1.5 py-0 h-5 bg-blue-500/20 text-blue-400 border border-blue-500/30 pointer-events-auto"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           onTableClick(table.table_name);
                                         }}
                                       >
                                         SEL
-                                      </Badge>
-                                      <Badge className="cursor-pointer hover:opacity-80 text-[10px] px-1.5 py-0 h-5 bg-green-500/20 text-green-400 border-green-500/30">
+                                      </Kbd>
+                                      <Kbd
+                                        className="cursor-pointer hover:bg-green-500/30 text-[10px] px-1.5 py-0 h-5 bg-green-500/20 text-green-400 border border-green-500/30 pointer-events-auto"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onTableInsert?.(table.table_name);
+                                        }}
+                                      >
                                         INS
-                                      </Badge>
-                                      <Badge className="cursor-pointer hover:opacity-80 text-[10px] px-1.5 py-0 h-5 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                                      </Kbd>
+                                      <Kbd
+                                        className="cursor-pointer hover:bg-yellow-500/30 text-[10px] px-1.5 py-0 h-5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 pointer-events-auto"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onTableUpdate?.(table.table_name);
+                                        }}
+                                      >
                                         UPD
-                                      </Badge>
-                                      <Badge className="cursor-pointer hover:opacity-80 text-[10px] px-1.5 py-0 h-5 bg-red-500/20 text-red-400 border-red-500/30">
+                                      </Kbd>
+                                      <Kbd
+                                        className="cursor-pointer hover:bg-red-500/30 text-[10px] px-1.5 py-0 h-5 bg-red-500/20 text-red-400 border border-red-500/30 pointer-events-auto"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onTableDelete?.(table.table_name);
+                                        }}
+                                      >
                                         DEL
-                                      </Badge>
+                                      </Kbd>
                                     </div>
                                     {/* Columns */}
                                     {table.columns.map((col) => (
@@ -286,15 +311,15 @@ export const AppSidebar = memo(function AppSidebar({
                                   <SidebarMenuSubButton
                                     onClick={() => onSelectQuery(savedQuery.query)}
                                   >
-                                    <Badge
-                                      className={`text-[10px] px-1.5 py-0 h-4 ${tag.className}`}
+                                    <Kbd
+                                      className={`text-[10px] px-1.5 py-0 h-4 ${tag.className} border`}
                                     >
                                       {tag.label}
-                                    </Badge>
+                                    </Kbd>
                                     {savedQuery.is_pinned && (
                                       <span className="text-yellow-500 text-xs">📌</span>
                                     )}
-                                    <span className="flex-1 truncate text-xs">
+                                    <span className="flex-1 min-w-0 truncate text-xs">
                                       {savedQuery.name}
                                     </span>
                                     <button
@@ -326,12 +351,12 @@ export const AppSidebar = memo(function AppSidebar({
                                   <SidebarMenuSubButton
                                     onClick={() => onSelectQuery(savedQuery.query)}
                                   >
-                                    <Badge
-                                      className={`text-[10px] px-1.5 py-0 h-4 ${tag.className}`}
+                                    <Kbd
+                                      className={`text-[10px] px-1.5 py-0 h-4 ${tag.className} border`}
                                     >
                                       {tag.label}
-                                    </Badge>
-                                    <span className="flex-1 truncate text-xs">
+                                    </Kbd>
+                                    <span className="flex-1 min-w-0 truncate text-xs">
                                       {savedQuery.name}
                                     </span>
                                     <button
@@ -389,11 +414,12 @@ export const AppSidebar = memo(function AppSidebar({
                               <SidebarMenuSubItem key={entry.id}>
                                 <SidebarMenuSubButton
                                   onClick={() => onSelectQuery(entry.query)}
+                                  className="flex gap-2"
                                 >
-                                  <span className="flex-1 truncate text-xs font-mono">
+                                  <span className="flex-1 min-w-0 truncate text-xs font-mono">
                                     {entry.query}
                                   </span>
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-xs text-muted-foreground whitespace-nowrap">
                                     {entry.execution_time_ms}ms
                                   </span>
                                 </SidebarMenuSubButton>
@@ -431,6 +457,7 @@ export const AppSidebar = memo(function AppSidebar({
           </div>
         </div>
       </SidebarFooter>
+      <SidebarRail />
     </Sidebar>
   );
 });

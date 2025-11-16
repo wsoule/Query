@@ -35,17 +35,13 @@
 - [ ] read only mode implementation: only allow select, describe, and count queries - store this in the config for the specific environment, for example, maybe whenever i want to use prod env, i want it set to read only
 - [ ] variables (maybe not needed?)
 - [ ] ERD
-- [ ] schema comparison
-- [ ] yaak styling (add shadcn)
+- [ ] schema comparison (dev, staging, prod)
 - [ ] robust table manipulation
 - [ ] other languages
   - mysql
   - mongodb (nosql)
 - [ ] styling:
   - left sidebar needs to be able to move
-  - sidebar updates:
-    - for saved queries it should have like [SEL] User as the name and the "sel" should be a color, same with all
-    - for the schema page, each table should be a shadcn sidebar dropdown, with sel, del, upd, etc. below for the table for quick actions
   - update header: should look like this from left to right: 
     - sidebar toggle, 
     - "Env [prod]" (the env name is a dropdown to click on and a plus button is in the dropdown to create a new connection), 
@@ -53,6 +49,8 @@
     - on far right side: toggle which way the results are displayed (vertical or horizontal), then a "CMD+K" button to toggle the quick actions menu
   - bottom of sidebar: git actions (commit, push, pull, or "init")
   - table columns hide and show
+  - better look for the editor, looks out of place (style and everything)
+- [ ] snippet stype tabbing, for example when you do the "cmd+k" and do the "update user" command, it should write in the the editor: "UPDATE users SET name = '$1' WHERE id = $2;" and then you can tab to the next field
 
 
 example of schema comparison:

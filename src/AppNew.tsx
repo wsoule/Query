@@ -238,6 +238,18 @@ export default function AppNew() {
     setQuery(`SELECT * FROM ${tableName} LIMIT 100;`);
   }, []);
 
+  const handleTableInsert = useCallback((tableName: string) => {
+    setQuery(`INSERT INTO ${tableName} (column1, column2) VALUES (value1, value2);`);
+  }, []);
+
+  const handleTableUpdate = useCallback((tableName: string) => {
+    setQuery(`UPDATE ${tableName} SET column1 = value1 WHERE condition;`);
+  }, []);
+
+  const handleTableDelete = useCallback((tableName: string) => {
+    setQuery(`DELETE FROM ${tableName} WHERE condition;`);
+  }, []);
+
   const handleColumnClick = useCallback((tableName: string, columnName: string) => {
     if (insertAtCursor) {
       insertAtCursor(`${tableName}.${columnName}`);
@@ -358,6 +370,9 @@ export default function AppNew() {
           onTogglePin={handleTogglePin}
           onClearHistory={handleClearHistory}
           onNewConnection={() => setShowConnectionModal(true)}
+          onTableInsert={handleTableInsert}
+          onTableUpdate={handleTableUpdate}
+          onTableDelete={handleTableDelete}
         />
 
         <SidebarInset className="flex flex-col">
@@ -410,7 +425,7 @@ export default function AppNew() {
                 className="h-8 gap-1.5"
               >
                 <Command className="h-3 w-3" />
-                <span className="text-xs font-mono">⌘K</span>
+                <span className="text-xs font-mono"><kbd>⌘K</kbd></span>
               </Button>
               <Button
                 variant="ghost"
