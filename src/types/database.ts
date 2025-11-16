@@ -20,4 +20,5 @@ export interface ConnectionConfig {
   database: string;
   username: string;
   password: string;
+  readOnly?: boolean;
 }

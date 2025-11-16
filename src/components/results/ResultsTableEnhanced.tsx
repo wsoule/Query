@@ -8,8 +8,17 @@ import {
   flexRender,
   SortingState,
   ColumnFiltersState,
+  VisibilityState,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Button } from "../ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import { EyeOff } from "lucide-react";
 import type { QueryResult } from '../../types';
 
 interface ResultsTableEnhancedProps {
@@ -20,6 +29,7 @@ interface ResultsTableEnhancedProps {
 export const ResultsTableEnhanced = memo(function ResultsTableEnhanced({ result, compact = false }: ResultsTableEnhancedProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
   // Transform data for TanStack Table
@@ -65,9 +75,11 @@ export const ResultsTableEnhanced = memo(function ResultsTableEnhanced({ result,
     state: {
       sorting,
       columnFilters,
+      columnVisibility,
     },
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -119,6 +131,37 @@ export const ResultsTableEnhanced = memo(function ResultsTableEnhanced({ result,
 
   return (
     <div className="rounded-lg border">
+      {/* Header with stats and column toggle */}
+      <div className="px-4 py-2 border-b flex items-center justify-between bg-muted/50">
+        <div className="text-xs text-muted-foreground">
+          {rows.length.toLocaleString()} rows • {result.execution_time_ms}ms
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-7 gap-2">
+              <EyeOff className="h-3 w-3" />
+              <span className="text-xs">Columns</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {table
+              .getAllColumns()
+              .filter((column) => column.getCanHide())
+              .map((column) => {
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    className="capitalize text-xs"
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                  >
+                    {column.id}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       {/* Table */}
       <div
         ref={tableContainerRef}

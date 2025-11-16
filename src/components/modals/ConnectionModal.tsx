@@ -10,6 +10,7 @@ import {
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { Checkbox } from "../ui/checkbox";
 import type { ConnectionConfig } from "../../types";
 
 interface ConnectionModalProps {
@@ -33,6 +34,7 @@ export const ConnectionModal = memo(function ConnectionModal({
       database: "",
       username: "",
       password: "",
+      readOnly: false,
     }
   );
 
@@ -130,6 +132,19 @@ export const ConnectionModal = memo(function ConnectionModal({
                 setConfig({ ...config, password: e.target.value })
               }
             />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="readOnly"
+              checked={config.readOnly || false}
+              onCheckedChange={(checked: boolean) =>
+                setConfig({ ...config, readOnly: checked })
+              }
+            />
+            <Label htmlFor="readOnly" className="cursor-pointer text-sm font-normal">
+              Read-only mode (only allow SELECT, DESCRIBE, and SHOW queries)
+            </Label>
           </div>
         </div>
 

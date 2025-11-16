@@ -106,7 +106,6 @@ export const AppSidebar = memo(function AppSidebar({
   onDeleteQuery,
   onTogglePin,
   onClearHistory,
-  onNewConnection,
   onTableInsert,
   onTableUpdate,
   onTableDelete,

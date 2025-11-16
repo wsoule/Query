@@ -70,6 +70,9 @@ export default function AppNew() {
   const [insertAtCursor, setInsertAtCursor] = useState<
     ((text: string) => void) | null
   >(null);
+  const [insertSnippet, setInsertSnippet] = useState<
+    ((snippet: string) => void) | null
+  >(null);
 
   useEffect(() => {
     async function initialize() {
@@ -224,6 +227,23 @@ export default function AppNew() {
       return;
     }
 
+    if (!query.trim()) {
+      setStatus("Please enter a query");
+      return;
+    }
+
+    // Read-only mode validation
+    if (readOnlyMode) {
+      const trimmedQuery = query.trim().toUpperCase();
+      const allowedCommands = ['SELECT', 'DESCRIBE', 'DESC', 'SHOW', 'EXPLAIN'];
+      const isAllowed = allowedCommands.some(cmd => trimmedQuery.startsWith(cmd));
+
+      if (!isAllowed) {
+        setStatus("❌ Read-only mode: Only SELECT, DESCRIBE, and SHOW queries are allowed");
+        return;
+      }
+    }
+
     setLoading(true);
     setStatus("");
 
@@ -252,7 +272,7 @@ export default function AppNew() {
     } finally {
       setLoading(false);
     }
-  }, [config, query, loadQueryHistory]);
+  }, [config, query, loadQueryHistory, readOnlyMode]);
 
   const handleProjectPathChanged = useCallback(async () => {
     await loadCurrentProjectPath();
@@ -272,18 +292,31 @@ export default function AppNew() {
   }, []);
 
   const handleTableInsert = useCallback((tableName: string) => {
-    setQuery(
-      `INSERT INTO ${tableName} (column1, column2) VALUES (value1, value2);`,
-    );
-  }, []);
+    if (insertSnippet) {
+      const snippet = `INSERT INTO ${tableName} (\${1:column1}, \${2:column2}) VALUES (\${3:value1}, \${4:value2});`;
+      insertSnippet(snippet);
+    } else {
+      setQuery(`INSERT INTO ${tableName} (column1, column2) VALUES (value1, value2);`);
+    }
+  }, [insertSnippet]);
 
   const handleTableUpdate = useCallback((tableName: string) => {
-    setQuery(`UPDATE ${tableName} SET column1 = value1 WHERE condition;`);
-  }, []);
+    if (insertSnippet) {
+      const snippet = `UPDATE ${tableName} SET \${1:column1} = \${2:value1} WHERE \${3:condition};`;
+      insertSnippet(snippet);
+    } else {
+      setQuery(`UPDATE ${tableName} SET column1 = value1 WHERE condition;`);
+    }
+  }, [insertSnippet]);
 
   const handleTableDelete = useCallback((tableName: string) => {
-    setQuery(`DELETE FROM ${tableName} WHERE condition;`);
-  }, []);
+    if (insertSnippet) {
+      const snippet = `DELETE FROM ${tableName} WHERE \${1:condition};`;
+      insertSnippet(snippet);
+    } else {
+      setQuery(`DELETE FROM ${tableName} WHERE condition;`);
+    }
+  }, [insertSnippet]);
 
   const handleColumnClick = useCallback(
     (tableName: string, columnName: string) => {
@@ -304,42 +337,37 @@ export default function AppNew() {
     }
   }, [loadQueryHistory]);
 
-  const handleConnectionChange = useCallback(
-    async (value: string) => {
-      if (value === "__new__") {
-        setShowConnectionModal(true);
-        return;
+  const handleConnectionChange = useCallback(async (value: string) => {
+    const conn = connections.find((c) => c.name === value);
+    if (conn) {
+      setConfig(conn);
+      // Set read-only mode based on connection setting
+      setReadOnlyMode(conn.readOnly || false);
+      // Auto-connect when switching connections
+      setLoading(true);
+      setStatus("");
+      try {
+        const result = await invoke<string>("test_postgres_connection", {
+          config: conn,
+        });
+        setStatus(result);
+        setConnected(true);
+        connectedRef.current = true;
+        // Load schema after successful connection
+        const dbSchema = await invoke<DatabaseSchema>("get_database_schema", {
+          config: conn,
+        });
+        setSchema(dbSchema);
+      } catch (error) {
+        setStatus(`Connection failed: ${error}`);
+        setConnected(false);
+        connectedRef.current = false;
+        setSchema(null);
+      } finally {
+        setLoading(false);
       }
-      const conn = connections.find((c) => c.name === value);
-      if (conn) {
-        setConfig(conn);
-        // Auto-connect when switching connections
-        setLoading(true);
-        setStatus("");
-        try {
-          const result = await invoke<string>("test_postgres_connection", {
-            config: conn,
-          });
-          setStatus(result);
-          setConnected(true);
-          connectedRef.current = true;
-          // Load schema after successful connection
-          const dbSchema = await invoke<DatabaseSchema>("get_database_schema", {
-            config: conn,
-          });
-          setSchema(dbSchema);
-        } catch (error) {
-          setStatus(`Connection failed: ${error}`);
-          setConnected(false);
-          connectedRef.current = false;
-          setSchema(null);
-        } finally {
-          setLoading(false);
-        }
-      }
-    },
-    [connections],
-  );
+    }
+  }, [connections]);
 
   const handleExecuteFromPalette = useCallback(
     (q: string) => {
@@ -487,9 +515,7 @@ export default function AppNew() {
                 className="h-8 gap-1.5"
               >
                 <Command className="h-3 w-3" />
-                <span className="text-xs font-mono">
-                  <kbd>K</kbd>
-                </span>
+                <span className="text-xs font-mono">K</span>
               </Button>
               <Button
                 variant="ghost"
@@ -544,7 +570,10 @@ export default function AppNew() {
                       onChange={setQuery}
                       onRunQuery={runQuery}
                       schema={schema}
-                      onEditorReady={setInsertAtCursor}
+                      onEditorReady={(insertAt, insertSnip) => {
+                        setInsertAtCursor(() => insertAt);
+                        setInsertSnippet(() => insertSnip);
+                      }}
                       vimMode={vimMode}
                     />
                   </div>

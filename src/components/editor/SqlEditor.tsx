@@ -8,7 +8,10 @@ interface SqlEditorProps {
   onChange: (value: string) => void;
   onRunQuery: () => void;
   schema?: DatabaseSchema | null;
-  onEditorReady?: (insertAtCursor: (text: string) => void) => void;
+  onEditorReady?: (
+    insertAtCursor: (text: string) => void,
+    insertSnippet: (snippet: string) => void
+  ) => void;
   vimMode?: boolean;
 }
 
@@ -69,7 +72,7 @@ export const SqlEditor = memo(function SqlEditor({ value, onChange, onRunQuery, 
     // Store editor instance
     editorRef.current = editor;
 
-    // Provide insert-at-cursor function to parent
+    // Provide insert-at-cursor and insert-snippet functions to parent
     if (onEditorReady) {
       const insertAtCursor = (text: string) => {
         const position = editor.getPosition();
@@ -86,7 +89,13 @@ export const SqlEditor = memo(function SqlEditor({ value, onChange, onRunQuery, 
         }]);
         editor.focus();
       };
-      onEditorReady(insertAtCursor);
+
+      const insertSnippet = (snippet: string) => {
+        editor.trigger('keyboard', 'editor.action.insertSnippet', { snippet });
+        editor.focus();
+      };
+
+      onEditorReady(insertAtCursor, insertSnippet);
     }
 
     // Cmd+Enter to run query (read current editor value and sync state first)

@@ -60,6 +60,8 @@
 - [ ] "Schema" dropdown should actaully be called "Tables"
 - [ ] create a "Schema" dropdown section to change between psql schema (like public, etc.)
 - [ ] update the cmd+k shortcut to have all commands
+- [ ] auto connect to your previously used connection
+- [ ] multi-row selection & manipulation
 
 example of schema comparison:
 ```
