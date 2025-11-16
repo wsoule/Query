@@ -55,7 +55,11 @@
 - [ ] open settings with command + , 
 - [ ] make table area scrollable from left to right
 - [ ] header information should be in the very top of the app, right next to the "x", "-", and expand buttons on mac. this may be a tauri setting.
-
+- [ ] for new connections, allow the user to enter a url string and have it auto-filled in the form
+- [ ] add test connection button on connection form
+- [ ] "Schema" dropdown should actaully be called "Tables"
+- [ ] create a "Schema" dropdown section to change between psql schema (like public, etc.)
+- [ ] update the cmd+k shortcut to have all commands
 
 example of schema comparison:
 ```
