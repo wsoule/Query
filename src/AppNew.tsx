@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "./components/ui/sidebar";
 import { AppSidebar } from "./components/layout/AppSidebar";
@@ -91,25 +91,25 @@ export default function AppNew() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  async function loadCurrentProjectPath() {
+  const loadCurrentProjectPath = useCallback(async () => {
     try {
       const path = await invoke<string | null>("get_current_project_path");
       setCurrentProjectPath(path);
     } catch (error) {
       console.error("Failed to load project path:", error);
     }
-  }
+  }, []);
 
-  async function loadSavedConnections() {
+  const loadSavedConnections = useCallback(async () => {
     try {
       const saved = await invoke<ConnectionConfig[]>("load_connections");
       setConnections(saved);
     } catch (error) {
       console.error("Failed to load connections:", error);
     }
-  }
+  }, []);
 
-  async function loadQueryHistory() {
+  const loadQueryHistory = useCallback(async () => {
     try {
       const hist = await invoke<QueryHistoryEntry[]>("get_query_history", {
         limit: 20,
@@ -118,18 +118,18 @@ export default function AppNew() {
     } catch (error) {
       console.error("Failed to load history:", error);
     }
-  }
+  }, []);
 
-  async function loadSavedQueries() {
+  const loadSavedQueries = useCallback(async () => {
     try {
       const queries = await invoke<SavedQuery[]>("get_saved_queries");
       setSavedQueries(queries);
     } catch (error) {
       console.error("Failed to load saved queries:", error);
     }
-  }
+  }, []);
 
-  async function handleSaveQuery(name: string, description: string) {
+  const handleSaveQuery = useCallback(async (name: string, description: string) => {
     try {
       await invoke("save_query", {
         name,
@@ -142,9 +142,9 @@ export default function AppNew() {
     } catch (error) {
       setStatus(`Failed to save query: ${error}`);
     }
-  }
+  }, [query, loadSavedQueries]);
 
-  async function handleDeleteSavedQuery(id: number) {
+  const handleDeleteSavedQuery = useCallback(async (id: number) => {
     try {
       await invoke("delete_saved_query", { id });
       await loadSavedQueries();
@@ -152,18 +152,18 @@ export default function AppNew() {
     } catch (error) {
       setStatus(`Failed to delete query: ${error}`);
     }
-  }
+  }, [loadSavedQueries]);
 
-  async function handleTogglePin(id: number) {
+  const handleTogglePin = useCallback(async (id: number) => {
     try {
       await invoke("toggle_pin_query", { id });
       await loadSavedQueries();
     } catch (error) {
       setStatus(`Failed to toggle pin: ${error}`);
     }
-  }
+  }, [loadSavedQueries]);
 
-  async function handleSaveConnection(connection: ConnectionConfig) {
+  const handleSaveConnection = useCallback(async (connection: ConnectionConfig) => {
     try {
       // Save password to keychain if provided
       if (connection.password) {
@@ -193,9 +193,9 @@ export default function AppNew() {
     } catch (error) {
       setStatus(`Failed to save connection: ${error}`);
     }
-  }
+  }, [connections]);
 
-  async function testConnection() {
+  const testConnection = useCallback(async () => {
     setLoading(true);
     setStatus("");
 
@@ -220,9 +220,9 @@ export default function AppNew() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [config]);
 
-  async function runQuery() {
+  const runQuery = useCallback(async () => {
     if (!connectedRef.current) {
       setStatus("Please connect to a database first");
       return;
@@ -256,21 +256,21 @@ export default function AppNew() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [config, query, loadQueryHistory]);
 
-  async function handleProjectPathChanged() {
+  const handleProjectPathChanged = useCallback(async () => {
     await loadCurrentProjectPath();
     await loadSavedConnections();
     await loadQueryHistory();
     await loadSavedQueries();
     setStatus("Project location changed - data reloaded");
-  }
+  }, [loadCurrentProjectPath, loadSavedConnections, loadQueryHistory, loadSavedQueries]);
 
-  function handleTableClick(tableName: string) {
+  const handleTableClick = useCallback((tableName: string) => {
     setQuery(`SELECT * FROM ${tableName} LIMIT 100;`);
-  }
+  }, []);
 
-  async function handleTableDoubleClick(tableName: string) {
+  const handleTableDoubleClick = useCallback(async (tableName: string) => {
     const newQuery = `SELECT * FROM ${tableName} LIMIT 100;`;
     setQuery(newQuery);
 
@@ -304,13 +304,40 @@ export default function AppNew() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [config, loadQueryHistory]);
 
-  function handleColumnClick(tableName: string, columnName: string) {
+  const handleColumnClick = useCallback((tableName: string, columnName: string) => {
     if (insertAtCursor) {
       insertAtCursor(`${tableName}.${columnName}`);
     }
-  }
+  }, [insertAtCursor]);
+
+  const handleClearHistory = useCallback(async () => {
+    try {
+      await invoke("clear_query_history");
+      await loadQueryHistory();
+      setStatus("History cleared");
+    } catch (error) {
+      setStatus(`Failed to clear history: ${error}`);
+    }
+  }, [loadQueryHistory]);
+
+  const handleOpenSettings = useCallback(() => {
+    setShowProjectPicker(true);
+  }, []);
+
+  const handleConnectionChange = useCallback((value: string) => {
+    const conn = connections.find((c) => c.name === value);
+    if (conn) {
+      setConfig(conn);
+    }
+  }, [connections]);
+
+  const handleExecuteFromPalette = useCallback((q: string) => {
+    setQuery(q);
+    setShowCommandPalette(false);
+    runQuery();
+  }, [runQuery]);
 
   return (
     <SidebarProvider>
@@ -325,16 +352,8 @@ export default function AppNew() {
           onSelectQuery={setQuery}
           onDeleteQuery={handleDeleteSavedQuery}
           onTogglePin={handleTogglePin}
-          onClearHistory={async () => {
-            try {
-              await invoke("clear_query_history");
-              await loadQueryHistory();
-              setStatus("History cleared");
-            } catch (error) {
-              setStatus(`Failed to clear history: ${error}`);
-            }
-          }}
-          onOpenSettings={() => setShowProjectPicker(true)}
+          onClearHistory={handleClearHistory}
+          onOpenSettings={handleOpenSettings}
         />
 
         <SidebarInset className="flex flex-col">
@@ -349,12 +368,7 @@ export default function AppNew() {
             <div className="ml-auto flex items-center gap-2">
               <Select
                 value={config.name}
-                onValueChange={(value) => {
-                  const conn = connections.find((c) => c.name === value);
-                  if (conn) {
-                    setConfig(conn);
-                  }
-                }}
+                onValueChange={handleConnectionChange}
               >
                 <SelectTrigger className="w-[200px]">
                   <SelectValue placeholder="Select connection" />
@@ -405,7 +419,7 @@ export default function AppNew() {
 
           {/* Main Content with Resizable Panels */}
           <div className="flex-1 overflow-hidden">
-            <ResizablePanelGroup direction="horizontal">
+            <ResizablePanelGroup direction="vertical">
               {/* SQL Editor Panel */}
               <ResizablePanel defaultSize={50} minSize={30}>
                 <div className="flex h-full flex-col">
@@ -495,11 +509,7 @@ export default function AppNew() {
         onClose={() => setShowCommandPalette(false)}
         schema={schema}
         history={history}
-        onExecuteQuery={(q) => {
-          setQuery(q);
-          setShowCommandPalette(false);
-          runQuery();
-        }}
+        onExecuteQuery={handleExecuteFromPalette}
       />
 
       <ProjectSettings

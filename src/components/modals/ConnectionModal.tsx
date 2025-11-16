@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ interface ConnectionModalProps {
   editConnection?: ConnectionConfig | null;
 }
 
-export function ConnectionModal({
+export const ConnectionModal = memo(function ConnectionModal({
   isOpen,
   onClose,
   onSave,
@@ -142,4 +142,4 @@ export function ConnectionModal({
       </DialogContent>
     </Dialog>
   );
-}
+});

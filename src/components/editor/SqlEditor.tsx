@@ -1,5 +1,5 @@
 import { Editor } from '@monaco-editor/react';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, memo } from 'react';
 import { initVimMode } from 'monaco-vim';
 import type { DatabaseSchema } from '../../types';
 
@@ -12,7 +12,7 @@ interface SqlEditorProps {
   vimMode?: boolean;
 }
 
-export function SqlEditor({ value, onChange, onRunQuery, schema, onEditorReady, vimMode = false }: SqlEditorProps) {
+export const SqlEditor = memo(function SqlEditor({ value, onChange, onRunQuery, schema, onEditorReady, vimMode = false }: SqlEditorProps) {
   const editorRef = useRef<any>(null);
   const schemaRef = useRef(schema);
   const onRunQueryRef = useRef(onRunQuery);
@@ -219,4 +219,4 @@ export function SqlEditor({ value, onChange, onRunQuery, schema, onEditorReady, 
       )}
     </div>
   );
-}
+});

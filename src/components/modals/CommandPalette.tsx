@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import type { DatabaseSchema, QueryHistoryEntry } from '../../types';
 
 interface CommandPaletteProps {
@@ -17,7 +17,7 @@ interface Command {
   category: "table" | "history" | "quick";
 }
 
-export function CommandPalette({
+export const CommandPalette = memo(function CommandPalette({
   isOpen,
   onClose,
   schema,
@@ -246,4 +246,4 @@ ORDER BY ordinal_position;`,
       </div>
     </div>
   );
-}
+});

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -9,7 +10,7 @@ import {
 } from "../ui/sidebar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { ScrollArea } from "../ui/scroll-area";
-import { Database, History, Save, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import { SchemaExplorer } from "../sidebar/SchemaExplorer";
 import { QueryHistory } from "../sidebar/QueryHistory";
 import { SavedQueries } from "../sidebar/SavedQueries";
@@ -33,7 +34,7 @@ interface AppSidebarProps {
   onOpenSettings: () => void;
 }
 
-export function AppSidebar({
+export const AppSidebar = memo(function AppSidebar({
   schema,
   history,
   savedQueries,
@@ -60,21 +61,18 @@ export function AppSidebar({
                 value="schema"
                 className="gap-2 data-[state=active]:bg-muted"
               >
-                <Database className="h-4 w-4" />
                 Schema
               </TabsTrigger>
               <TabsTrigger
                 value="saved"
                 className="gap-2 data-[state=active]:bg-muted"
               >
-                <Save className="h-4 w-4" />
                 Saved
               </TabsTrigger>
               <TabsTrigger
                 value="history"
                 className="gap-2 data-[state=active]:bg-muted"
               >
-                <History className="h-4 w-4" />
                 History
               </TabsTrigger>
             </TabsList>
@@ -132,4 +130,4 @@ export function AppSidebar({
       </SidebarFooter>
     </Sidebar>
   );
-}
+});

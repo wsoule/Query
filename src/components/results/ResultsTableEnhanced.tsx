@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo, useRef, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -9,6 +9,7 @@ import {
   SortingState,
   ColumnFiltersState,
 } from "@tanstack/react-table";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { QueryResult } from '../../types';
 
 interface ResultsTableEnhancedProps {
@@ -16,9 +17,10 @@ interface ResultsTableEnhancedProps {
   compact?: boolean;
 }
 
-export function ResultsTableEnhanced({ result, compact = false }: ResultsTableEnhancedProps) {
+export const ResultsTableEnhanced = memo(function ResultsTableEnhanced({ result, compact = false }: ResultsTableEnhancedProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   // Transform data for TanStack Table
   const data = useMemo(() => {
@@ -44,6 +46,16 @@ export function ResultsTableEnhanced({ result, compact = false }: ResultsTableEn
         if (typeof value === "object") return JSON.stringify(value);
         return String(value);
       },
+      filterFn: (row, columnId, filterValue) => {
+        const value = row.getValue(columnId);
+        if (value === null || value === undefined) return false;
+
+        // Convert both to strings for comparison (handles numbers, booleans, etc.)
+        const stringValue = String(value).toLowerCase();
+        const stringFilter = String(filterValue).toLowerCase();
+
+        return stringValue.includes(stringFilter);
+      },
     }));
   }, [result]);
 
@@ -60,6 +72,22 @@ export function ResultsTableEnhanced({ result, compact = false }: ResultsTableEn
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
   });
+
+  // Set up row virtualization
+  const { rows } = table.getRowModel();
+  const rowVirtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 33, // Estimated row height in pixels
+    overscan: 10, // Render 10 extra rows above and below viewport
+  });
+
+  // Scroll to top when filters or sorting changes
+  useEffect(() => {
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollTop = 0;
+    }
+  }, [columnFilters, sorting]);
 
   if (!result) {
     return (
@@ -81,40 +109,29 @@ export function ResultsTableEnhanced({ result, compact = false }: ResultsTableEn
     );
   }
 
-  return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700">
-      {/* Header with stats */}
-      <div className="px-4 py-3 border-b border-gray-700 flex items-center justify-between">
-        <div className="text-sm">
-          <span className="font-semibold">{result.row_count.toLocaleString()}</span>
-          <span className="text-gray-400 ml-1">
-            {result.row_count === 1 ? "row" : "rows"}
-          </span>
-          <span className="text-gray-600 mx-2">•</span>
-          <span className="text-gray-400">{result.execution_time_ms}ms</span>
-        </div>
-        {!compact && (
-          <div className="text-xs text-gray-500">
-            {table.getFilteredRowModel().rows.length !== result.row_count && (
-              <span>
-                Showing {table.getFilteredRowModel().rows.length} of{" "}
-                {result.row_count} rows
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const totalSize = rowVirtualizer.getTotalSize();
+  const paddingTop = virtualRows.length > 0 ? virtualRows[0]?.start || 0 : 0;
+  const paddingBottom =
+    virtualRows.length > 0
+      ? totalSize - (virtualRows[virtualRows.length - 1]?.end || 0)
+      : 0;
 
+  return (
+    <div className="rounded-lg border">
       {/* Table */}
-      <div className={`overflow-auto ${compact ? "max-h-64" : "max-h-96"}`}>
-        <table className="w-full text-sm">
-          <thead className="bg-gray-900 sticky top-0">
+      <div
+        ref={tableContainerRef}
+        className={`overflow-auto ${compact ? "max-h-64" : "max-h-96"}`}
+      >
+        <table className="w-full text-sm border-collapse">
+          <thead className="bg-background sticky top-0 z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-4 py-2 text-left text-xs font-semibold text-gray-400 border-b border-gray-700"
+                    className="px-4 py-2 text-left text-xs font-semibold text-gray-400 border border-gray-700"
                   >
                     {header.isPlaceholder ? null : (
                       <div>
@@ -157,25 +174,38 @@ export function ResultsTableEnhanced({ result, compact = false }: ResultsTableEn
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-gray-700 hover:bg-gray-700/50"
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className="px-4 py-2 text-gray-300 font-mono text-xs max-w-md truncate"
-                    title={String(cell.getValue() ?? "")}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+            {paddingTop > 0 && (
+              <tr>
+                <td style={{ height: `${paddingTop}px` }} />
               </tr>
-            ))}
+            )}
+            {virtualRows.map((virtualRow) => {
+              const row = rows[virtualRow.index];
+              return (
+                <tr
+                  key={row.id}
+                  className="border border-gray-700 hover:bg-gray-700/50"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className="px-4 py-2 text-gray-300 font-mono text-xs max-w-md truncate border"
+                      title={String(cell.getValue() ?? "")}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+            {paddingBottom > 0 && (
+              <tr>
+                <td style={{ height: `${paddingBottom}px` }} />
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
     </div>
   );
-}
+});

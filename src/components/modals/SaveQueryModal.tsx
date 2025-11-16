@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 
 interface SaveQueryModalProps {
   isOpen: boolean;
@@ -7,7 +7,7 @@ interface SaveQueryModalProps {
   currentQuery: string;
 }
 
-export function SaveQueryModal({
+export const SaveQueryModal = memo(function SaveQueryModal({
   isOpen,
   onClose,
   onSave,
@@ -102,4 +102,4 @@ export function SaveQueryModal({
       </div>
     </div>
   );
-}
+});

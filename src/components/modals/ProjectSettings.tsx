@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -9,7 +9,7 @@ interface ProjectSettingsProps {
   onPathChanged: () => void;
 }
 
-export function ProjectSettings({
+export const ProjectSettings = memo(function ProjectSettings({
   isOpen,
   onClose,
   currentPath,
@@ -17,8 +17,6 @@ export function ProjectSettings({
 }: ProjectSettingsProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  console.log("ProjectSettings render - isOpen:", isOpen);
 
   if (!isOpen) return null;
 
@@ -140,4 +138,4 @@ export function ProjectSettings({
       </div>
     </div>
   );
-}
+});

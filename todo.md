@@ -23,7 +23,12 @@
   - move constants to their own folder
 
 ### feats
+- [ ] speed (when having a lot of lines, the app is slow, need to optimize and lazy load the results)
 - [ ] export/import
+- [ ] cancel query
+- [ ] show vim mode in ui (already implemented but cannot see)
+- [ ] settings page
+- [ ] update dialog to look better (use shadcn)
 - [ ] inline data editing
 - [ ] search & filter within results
 - [ ] better git integration (commit, push, pull in app)
@@ -36,6 +41,9 @@
 - [ ] other languages
   - mysql
   - mongodb (nosql)
+- [ ] styling:
+  - left sidebar needs to be able to move
+  - use sidebar from shadcn page: https://ui.shadcn.com/docs/components/sidebar
 
 
 example of schema comparison:
