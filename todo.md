@@ -54,6 +54,7 @@
 - [ ] manage connections in settings
 - [ ] open settings with command + , 
 - [ ] make table area scrollable from left to right
+- [ ] header information should be in the very top of the app, right next to the "x", "-", and expand buttons on mac. this may be a tauri setting.
 
 
 example of schema comparison:
