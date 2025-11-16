@@ -154,7 +154,7 @@ export const AppSidebar = memo(function AppSidebar({
                   </div>
                 </SelectItem>
               ))}
-              <SelectItem value="__new__" onSelect={onNewConnection}>
+              <SelectItem value="__new__">
                 <div className="flex items-center gap-2">
                   <Plus className="h-3 w-3" />
                   <span>New Connection</span>

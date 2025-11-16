@@ -33,18 +33,18 @@ pub fn save_connections(connections: Vec<ConnectionConfig>) -> Result<(), String
 }
 
 #[tauri::command]
-pub fn save_connection_password(connection_name: String, password: String) -> Result<(), String> {
-    save_password_to_keychain(&connection_name, &password)
+pub fn save_connection_password(name: String, password: String) -> Result<(), String> {
+    save_password_to_keychain(&name, &password)
 }
 
 #[tauri::command]
-pub fn get_connection_password(connection_name: String) -> Result<Option<String>, String> {
-    get_password_from_keychain(&connection_name)
+pub fn get_connection_password(name: String) -> Result<Option<String>, String> {
+    get_password_from_keychain(&name)
 }
 
 #[tauri::command]
-pub fn delete_connection_password(connection_name: String) -> Result<(), String> {
-    delete_password_from_keychain(&connection_name)
+pub fn delete_connection_password(name: String) -> Result<(), String> {
+    delete_password_from_keychain(&name)
 }
 
 #[tauri::command]

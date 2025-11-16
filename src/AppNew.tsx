@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { SidebarProvider, SidebarInset, SidebarTrigger } from "./components/ui/sidebar";
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+} from "./components/ui/sidebar";
 import { AppSidebar } from "./components/layout/AppSidebar";
 import {
   ResizableHandle,
@@ -11,7 +15,16 @@ import { Button } from "./components/ui/button";
 import { Separator } from "./components/ui/separator";
 import { Badge } from "./components/ui/badge";
 import { ScrollArea } from "./components/ui/scroll-area";
-import { Play, Save, Settings as SettingsIcon, Download, Lock, Unlock, LayoutGrid, Command } from "lucide-react";
+import {
+  Play,
+  Save,
+  Settings as SettingsIcon,
+  Download,
+  Lock,
+  Unlock,
+  LayoutGrid,
+  Command,
+} from "lucide-react";
 import { SqlEditor } from "./components/editor/SqlEditor";
 import { ResultsTableEnhanced } from "./components/results/ResultsTableEnhanced";
 import { SaveQueryModal } from "./components/modals/SaveQueryModal";
@@ -38,7 +51,9 @@ export default function AppNew() {
   const [vimMode, setVimMode] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const [readOnlyMode, setReadOnlyMode] = useState(false);
-  const [layoutDirection, setLayoutDirection] = useState<"vertical" | "horizontal">("vertical");
+  const [layoutDirection, setLayoutDirection] = useState<
+    "vertical" | "horizontal"
+  >("vertical");
   const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
     null,
   );
@@ -124,71 +139,84 @@ export default function AppNew() {
     }
   }, []);
 
-  const handleSaveQuery = useCallback(async (name: string, description: string) => {
-    try {
-      await invoke("save_query", {
-        name,
-        query,
-        description: description || null,
-      });
-      await loadSavedQueries();
-      setStatus(`Query "${name}" saved successfully`);
-      setShowSaveModal(false);
-    } catch (error) {
-      setStatus(`Failed to save query: ${error}`);
-    }
-  }, [query, loadSavedQueries]);
-
-  const handleDeleteSavedQuery = useCallback(async (id: number) => {
-    try {
-      await invoke("delete_saved_query", { id });
-      await loadSavedQueries();
-      setStatus("Query deleted");
-    } catch (error) {
-      setStatus(`Failed to delete query: ${error}`);
-    }
-  }, [loadSavedQueries]);
-
-  const handleTogglePin = useCallback(async (id: number) => {
-    try {
-      await invoke("toggle_pin_query", { id });
-      await loadSavedQueries();
-    } catch (error) {
-      setStatus(`Failed to toggle pin: ${error}`);
-    }
-  }, [loadSavedQueries]);
-
-  const handleSaveConnection = useCallback(async (connection: ConnectionConfig) => {
-    try {
-      // Save password to keychain if provided
-      if (connection.password) {
-        await invoke("save_connection_password", {
-          name: connection.name,
-          password: connection.password,
+  const handleSaveQuery = useCallback(
+    async (name: string, description: string) => {
+      try {
+        await invoke("save_query", {
+          name,
+          query,
+          description: description || null,
         });
+        await loadSavedQueries();
+        setStatus(`Query "${name}" saved successfully`);
+        setShowSaveModal(false);
+      } catch (error) {
+        setStatus(`Failed to save query: ${error}`);
       }
+    },
+    [query, loadSavedQueries],
+  );
 
-      // Add or update connection in list
-      const existing = connections.find((c) => c.name === connection.name);
-      let updated: ConnectionConfig[];
-
-      if (existing) {
-        updated = connections.map((c) =>
-          c.name === connection.name ? { ...connection, password: "" } : c
-        );
-      } else {
-        updated = [...connections, { ...connection, password: "" }];
+  const handleDeleteSavedQuery = useCallback(
+    async (id: number) => {
+      try {
+        await invoke("delete_saved_query", { id });
+        await loadSavedQueries();
+        setStatus("Query deleted");
+      } catch (error) {
+        setStatus(`Failed to delete query: ${error}`);
       }
+    },
+    [loadSavedQueries],
+  );
 
-      await invoke("save_connections", { connections: updated });
-      setConnections(updated);
-      setConfig(connection);
-      setStatus(`Connection "${connection.name}" saved successfully`);
-      setShowConnectionModal(false);
-    } catch (error) {
-      setStatus(`Failed to save connection: ${error}`);
-    }
-  }, [connections]);
+  const handleTogglePin = useCallback(
+    async (id: number) => {
+      try {
+        await invoke("toggle_pin_query", { id });
+        await loadSavedQueries();
+      } catch (error) {
+        setStatus(`Failed to toggle pin: ${error}`);
+      }
+    },
+    [loadSavedQueries],
+  );
+
+  const handleSaveConnection = useCallback(
+    async (connection: ConnectionConfig) => {
+      try {
+        // Save password to keychain if provided
+        console.log('connection password is:', connection.password);
+        if (connection.password) {
+          await invoke("save_connection_password", {
+            name: connection.name,
+            password: connection.password,
+          });
+        }
+
+        // Add or update connection in list
+        const existing = connections.find((c) => c.name === connection.name);
+        let updated: ConnectionConfig[];
+
+        if (existing) {
+          updated = connections.map((c) =>
+            c.name === connection.name ? { ...connection, password: "" } : c,
+          );
+        } else {
+          updated = [...connections, { ...connection, password: "" }];
+        }
+
+        await invoke("save_connections", { connections: updated });
+        setConnections(updated);
+        setConfig(connection);
+        setStatus(`Connection "${connection.name}" saved successfully`);
+        setShowConnectionModal(false);
+      } catch (error) {
+        setStatus(`Failed to save connection: ${error}`);
+      }
+    },
+    [connections],
+  );
 
   const runQuery = useCallback(async () => {
     if (!connectedRef.current) {
@@ -232,14 +260,21 @@ export default function AppNew() {
     await loadQueryHistory();
     await loadSavedQueries();
     setStatus("Project location changed - data reloaded");
-  }, [loadCurrentProjectPath, loadSavedConnections, loadQueryHistory, loadSavedQueries]);
+  }, [
+    loadCurrentProjectPath,
+    loadSavedConnections,
+    loadQueryHistory,
+    loadSavedQueries,
+  ]);
 
   const handleTableClick = useCallback((tableName: string) => {
     setQuery(`SELECT * FROM ${tableName} LIMIT 100;`);
   }, []);
 
   const handleTableInsert = useCallback((tableName: string) => {
-    setQuery(`INSERT INTO ${tableName} (column1, column2) VALUES (value1, value2);`);
+    setQuery(
+      `INSERT INTO ${tableName} (column1, column2) VALUES (value1, value2);`,
+    );
   }, []);
 
   const handleTableUpdate = useCallback((tableName: string) => {
@@ -250,11 +285,14 @@ export default function AppNew() {
     setQuery(`DELETE FROM ${tableName} WHERE condition;`);
   }, []);
 
-  const handleColumnClick = useCallback((tableName: string, columnName: string) => {
-    if (insertAtCursor) {
-      insertAtCursor(`${tableName}.${columnName}`);
-    }
-  }, [insertAtCursor]);
+  const handleColumnClick = useCallback(
+    (tableName: string, columnName: string) => {
+      if (insertAtCursor) {
+        insertAtCursor(`${tableName}.${columnName}`);
+      }
+    },
+    [insertAtCursor],
+  );
 
   const handleClearHistory = useCallback(async () => {
     try {
@@ -266,64 +304,76 @@ export default function AppNew() {
     }
   }, [loadQueryHistory]);
 
-  const handleConnectionChange = useCallback(async (value: string) => {
-    const conn = connections.find((c) => c.name === value);
-    if (conn) {
-      setConfig(conn);
-      // Auto-connect when switching connections
-      setLoading(true);
-      setStatus("");
-      try {
-        const result = await invoke<string>("test_postgres_connection", {
-          config: conn,
-        });
-        setStatus(result);
-        setConnected(true);
-        connectedRef.current = true;
-        // Load schema after successful connection
-        const dbSchema = await invoke<DatabaseSchema>("get_database_schema", {
-          config: conn,
-        });
-        setSchema(dbSchema);
-      } catch (error) {
-        setStatus(`Connection failed: ${error}`);
-        setConnected(false);
-        connectedRef.current = false;
-        setSchema(null);
-      } finally {
-        setLoading(false);
+  const handleConnectionChange = useCallback(
+    async (value: string) => {
+      if (value === "__new__") {
+        setShowConnectionModal(true);
+        return;
       }
-    }
-  }, [connections]);
+      const conn = connections.find((c) => c.name === value);
+      if (conn) {
+        setConfig(conn);
+        // Auto-connect when switching connections
+        setLoading(true);
+        setStatus("");
+        try {
+          const result = await invoke<string>("test_postgres_connection", {
+            config: conn,
+          });
+          setStatus(result);
+          setConnected(true);
+          connectedRef.current = true;
+          // Load schema after successful connection
+          const dbSchema = await invoke<DatabaseSchema>("get_database_schema", {
+            config: conn,
+          });
+          setSchema(dbSchema);
+        } catch (error) {
+          setStatus(`Connection failed: ${error}`);
+          setConnected(false);
+          connectedRef.current = false;
+          setSchema(null);
+        } finally {
+          setLoading(false);
+        }
+      }
+    },
+    [connections],
+  );
 
-  const handleExecuteFromPalette = useCallback((q: string) => {
-    setQuery(q);
-    setShowCommandPalette(false);
-    runQuery();
-  }, [runQuery]);
+  const handleExecuteFromPalette = useCallback(
+    (q: string) => {
+      setQuery(q);
+      setShowCommandPalette(false);
+      runQuery();
+    },
+    [runQuery],
+  );
 
   const exportToCSV = useCallback(() => {
     if (!result) return;
 
     // Create CSV header
     const csv = [
-      result.columns.join(','),
-      ...result.rows.map(row =>
-        row.map(cell => {
-          // Handle null, quotes, and commas
-          if (cell === null) return '';
-          const str = String(cell);
-          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-            return `"${str.replace(/"/g, '""')}"`;
-          }
-          return str;
-        }).join(',')
-      )
-    ].join('\n');
+      result.columns.join(","),
+      ...result.rows.map((row) =>
+        row
+          .map((cell) => {
+            // Handle null, quotes, and commas
+            if (cell === null) return "";
+            const str = String(cell);
+            if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+              return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+          })
+          .join(","),
+      ),
+    ].join("\n");
 
     // Create download link
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `query_results_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
@@ -334,7 +384,7 @@ export default function AppNew() {
     if (!result) return;
 
     // Convert rows to objects with column names as keys
-    const data = result.rows.map(row => {
+    const data = result.rows.map((row) => {
       const obj: any = {};
       result.columns.forEach((col, idx) => {
         obj[col] = row[idx];
@@ -345,8 +395,8 @@ export default function AppNew() {
     const json = JSON.stringify(data, null, 2);
 
     // Create download link
-    const blob = new Blob([json], { type: 'application/json' });
-    const link = document.createElement('a');
+    const blob = new Blob([json], { type: "application/json" });
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `query_results_${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
@@ -390,7 +440,9 @@ export default function AppNew() {
                   connected ? "bg-green-500" : "bg-gray-500"
                 }`}
               />
-              <span className="text-sm font-medium">{config.name || "No connection"}</span>
+              <span className="text-sm font-medium">
+                {config.name || "No connection"}
+              </span>
             </div>
 
             <Separator orientation="vertical" className="h-6" />
@@ -400,10 +452,16 @@ export default function AppNew() {
               variant={readOnlyMode ? "default" : "ghost"}
               size="sm"
               onClick={() => setReadOnlyMode(!readOnlyMode)}
-              title={readOnlyMode ? "Read-only mode active" : "Enable read-only mode"}
+              title={
+                readOnlyMode ? "Read-only mode active" : "Enable read-only mode"
+              }
               className="h-8 gap-2"
             >
-              {readOnlyMode ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+              {readOnlyMode ? (
+                <Lock className="h-3 w-3" />
+              ) : (
+                <Unlock className="h-3 w-3" />
+              )}
               <span className="text-xs">Read-only</span>
             </Button>
 
@@ -412,7 +470,11 @@ export default function AppNew() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setLayoutDirection(layoutDirection === "vertical" ? "horizontal" : "vertical")}
+                onClick={() =>
+                  setLayoutDirection(
+                    layoutDirection === "vertical" ? "horizontal" : "vertical",
+                  )
+                }
                 title={`Switch to ${layoutDirection === "vertical" ? "horizontal" : "vertical"} layout`}
                 className="h-8 w-8"
               >
@@ -425,7 +487,9 @@ export default function AppNew() {
                 className="h-8 gap-1.5"
               >
                 <Command className="h-3 w-3" />
-                <span className="text-xs font-mono"><kbd>⌘K</kbd></span>
+                <span className="text-xs font-mono">
+                  <kbd>K</kbd>
+                </span>
               </Button>
               <Button
                 variant="ghost"

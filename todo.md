@@ -51,6 +51,9 @@
   - table columns hide and show
   - better look for the editor, looks out of place (style and everything)
 - [ ] snippet stype tabbing, for example when you do the "cmd+k" and do the "update user" command, it should write in the the editor: "UPDATE users SET name = '$1' WHERE id = $2;" and then you can tab to the next field
+- [ ] manage connections in settings
+- [ ] open settings with command + , 
+- [ ] make table area scrollable from left to right
 
 
 example of schema comparison:
