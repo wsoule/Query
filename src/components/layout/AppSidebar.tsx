@@ -35,6 +35,8 @@ import {
   Database,
   History as HistoryIcon,
   BookmarkIcon,
+  PinOff,
+  Pin,
 } from "lucide-react";
 import { Kbd } from "../ui/kbd";
 import type {
@@ -134,10 +136,6 @@ export const AppSidebar = memo(function AppSidebar({
   return (
     <Sidebar>
       <SidebarHeader className="border-b px-3 py-3">
-        <div className="flex items-center gap-2 mb-2">
-          <Database className="h-5 w-5 text-muted-foreground" />
-          <h2 className="text-lg font-semibold">Query</h2>
-        </div>
         <div className="space-y-1">
           <div className="text-xs text-muted-foreground">Environment</div>
           <Select value={currentConnection.name} onValueChange={onConnectionChange}>
@@ -340,7 +338,7 @@ export const AppSidebar = memo(function AppSidebar({
                                       {tag.label}
                                     </Kbd>
                                     {savedQuery.is_pinned && (
-                                      <span className="text-yellow-500 text-xs">📌</span>
+                                      <span className="text-yellow-500 text-xs"><PinOff /></span>
                                     )}
                                     <span className="flex-1 min-w-0 truncate text-xs">
                                       {savedQuery.name}
@@ -352,7 +350,7 @@ export const AppSidebar = memo(function AppSidebar({
                                       }}
                                       className="opacity-0 group-hover:opacity-100 text-xs"
                                     >
-                                      📍
+                                      <Pin />
                                     </button>
                                     <button
                                       onClick={(e) => {
@@ -389,7 +387,7 @@ export const AppSidebar = memo(function AppSidebar({
                                       }}
                                       className="opacity-0 group-hover:opacity-100 text-xs"
                                     >
-                                      📍
+                                      <Pin />
                                     </button>
                                     <button
                                       onClick={(e) => {

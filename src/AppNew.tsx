@@ -692,18 +692,18 @@ export default function AppNew() {
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowSaveModal(true)}
+                        title="Save Query"
                       >
                         <Save className="h-3 w-3 mr-1" />
-                        Save
                       </Button>
                       <Button
                         size="sm"
                         onClick={runQuery}
                         disabled={loading}
                         className="gap-2"
+                        title="Run Query"
                       >
                         <Play className="h-3 w-3" />
-                        Run Query
                       </Button>
                     </div>
                   </div>
@@ -779,7 +779,7 @@ export default function AppNew() {
                         compact={compactView}
                       />
                     </div>
-                    <ScrollBar orientation="horizontal" />
+                    <ScrollBar orientation="vertical" />
                   </ScrollArea>
                 </div>
               </ResizablePanel>

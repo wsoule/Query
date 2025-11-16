@@ -20,8 +20,6 @@ import { ScrollArea } from "../ui/scroll-area";
 import { Separator } from "../ui/separator";
 import { Badge } from "../ui/badge";
 import {
-  Settings2,
-  Monitor,
   Database,
   Edit3,
   Trash2,
@@ -124,7 +122,6 @@ export const Settings = memo(function Settings({
       <DialogContent className="max-w-3xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Settings2 className="h-5 w-5" />
             Settings
           </DialogTitle>
           <DialogDescription>
@@ -135,19 +132,15 @@ export const Settings = memo(function Settings({
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="general" className="gap-2">
-              <Monitor className="h-4 w-4" />
               General
             </TabsTrigger>
             <TabsTrigger value="editor" className="gap-2">
-              <Edit3 className="h-4 w-4" />
               Editor
             </TabsTrigger>
             <TabsTrigger value="display" className="gap-2">
-              <Monitor className="h-4 w-4" />
               Display
             </TabsTrigger>
             <TabsTrigger value="connections" className="gap-2">
-              <Database className="h-4 w-4" />
               Connections
             </TabsTrigger>
           </TabsList>
@@ -305,7 +298,6 @@ export const Settings = memo(function Settings({
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium">Saved Connections</h3>
                   <Button variant="default" size="sm" onClick={onNewConnection}>
-                    <Database className="h-3 w-3 mr-2" />
                     New Connection
                   </Button>
                 </div>
