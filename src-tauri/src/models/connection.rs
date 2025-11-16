@@ -9,4 +9,6 @@ pub struct ConnectionConfig {
     pub username: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub password: String,
+    #[serde(default, rename = "readOnly")]
+    pub read_only: bool,
 }

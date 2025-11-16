@@ -26,6 +26,20 @@ pub async fn execute_query(
     config: ConnectionConfig,
     query: String,
 ) -> Result<QueryResult, String> {
+    // Read-only mode validation
+    if config.read_only {
+        let trimmed_query = query.trim().to_uppercase();
+        let allowed_commands = ["SELECT", "DESCRIBE", "DESC", "SHOW", "EXPLAIN"];
+        let is_allowed = allowed_commands.iter().any(|cmd| trimmed_query.starts_with(cmd));
+
+        if !is_allowed {
+            return Err(
+                "Read-only mode: Only SELECT, DESCRIBE, DESC, SHOW, and EXPLAIN queries are allowed"
+                    .to_string(),
+            );
+        }
+    }
+
     let start = std::time::Instant::now();
 
     let connection_string = format!(

@@ -31,6 +31,7 @@ import { SaveQueryModal } from "./components/modals/SaveQueryModal";
 import { CommandPalette } from "./components/modals/CommandPalette";
 import { ProjectSettings } from "./components/modals/ProjectSettings";
 import { ConnectionModal } from "./components/modals/ConnectionModal";
+import { Settings } from "./components/modals/Settings";
 import type {
   DatabaseSchema,
   ConnectionConfig,
@@ -48,6 +49,7 @@ export default function AppNew() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [vimMode, setVimMode] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const [readOnlyMode, setReadOnlyMode] = useState(false);
@@ -58,6 +60,7 @@ export default function AppNew() {
     null,
   );
   const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [editingConnection, setEditingConnection] = useState<ConnectionConfig | null>(null);
 
   const [config, setConfig] = useState<ConnectionConfig>(DEFAULT_CONNECTION);
 
@@ -97,6 +100,11 @@ export default function AppNew() {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setShowCommandPalette((prev) => !prev);
+      }
+      // Cmd+,: Settings
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        setShowSettings((prev) => !prev);
       }
     };
 
@@ -214,12 +222,37 @@ export default function AppNew() {
         setConfig(connection);
         setStatus(`Connection "${connection.name}" saved successfully`);
         setShowConnectionModal(false);
+        setEditingConnection(null);
       } catch (error) {
         setStatus(`Failed to save connection: ${error}`);
       }
     },
     [connections],
   );
+
+  const handleDeleteConnection = useCallback(
+    async (name: string) => {
+      try {
+        const updated = connections.filter((c) => c.name !== name);
+
+        // Delete from keychain
+        await invoke("delete_connection_password", { connectionName: name });
+
+        // Delete from JSON
+        await invoke("save_connections", { connections: updated });
+        setConnections(updated);
+        setStatus(`Connection "${name}" deleted`);
+      } catch (error) {
+        setStatus(`Failed to delete connection: ${error}`);
+      }
+    },
+    [connections],
+  );
+
+  const handleEditConnection = useCallback((connection: ConnectionConfig) => {
+    setEditingConnection(connection);
+    setShowConnectionModal(true);
+  }, []);
 
   const runQuery = useCallback(async () => {
     if (!connectedRef.current) {
@@ -338,6 +371,12 @@ export default function AppNew() {
   }, [loadQueryHistory]);
 
   const handleConnectionChange = useCallback(async (value: string) => {
+    // Handle "New Connection" option
+    if (value === "__new__") {
+      setShowConnectionModal(true);
+      return;
+    }
+
     const conn = connections.find((c) => c.name === value);
     if (conn) {
       setConfig(conn);
@@ -520,8 +559,9 @@ export default function AppNew() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowProjectPicker(true)}
+                onClick={() => setShowSettings(true)}
                 className="h-8 w-8"
+                title="Settings (⌘,)"
               >
                 <SettingsIcon className="h-4 w-4" />
               </Button>
@@ -660,6 +700,26 @@ export default function AppNew() {
         onExecuteQuery={handleExecuteFromPalette}
       />
 
+      <Settings
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        currentProjectPath={currentProjectPath}
+        onProjectPathChange={handleProjectPathChanged}
+        vimMode={vimMode}
+        onVimModeChange={setVimMode}
+        compactView={compactView}
+        onCompactViewChange={setCompactView}
+        layoutDirection={layoutDirection}
+        onLayoutDirectionChange={setLayoutDirection}
+        connections={connections}
+        onDeleteConnection={handleDeleteConnection}
+        onEditConnection={handleEditConnection}
+        onNewConnection={() => {
+          setEditingConnection(null);
+          setShowConnectionModal(true);
+        }}
+      />
+
       <ProjectSettings
         isOpen={showProjectPicker}
         onClose={() => setShowProjectPicker(false)}
@@ -669,8 +729,12 @@ export default function AppNew() {
 
       <ConnectionModal
         isOpen={showConnectionModal}
-        onClose={() => setShowConnectionModal(false)}
+        onClose={() => {
+          setShowConnectionModal(false);
+          setEditingConnection(null);
+        }}
         onSave={handleSaveConnection}
+        initialConnection={editingConnection}
       />
     </SidebarProvider>
   );

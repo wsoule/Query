@@ -1,3 +1,8 @@
+# Query - PostgreSQL Desktop Client
+
+A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
+
+## Core Features (Completed)
 - [x] query history
 - [x] intellisense
 - [x] autocomplete
@@ -6,7 +11,7 @@
 - [x] quickly change between connections (dropdown in header + Cmd+Shift+C)
 - [x] save & pin queries
 - [x] hot query (command + k)
-  - Quick commands: SELECT, UPDATE, DESCRIBE, COUNT for any table
+  - Quick commands: SELECT, INSERT, UPDATE, DELETE, DESCRIBE, COUNT for any table
   - Fuzzy search for tables
   - Shows recent queries from history
 - [x] vim keybindings (toggleable with VIM button)
@@ -22,48 +27,59 @@
   - move types to their own folder
   - move constants to their own folder
 - [x] speed (when having a lot of lines, the app is slow, need to optimize and lazy load the results)
-- [x] export/import
+- [x] export/import (CSV and JSON)
 - [x] show vim mode in ui (already implemented but cannot see)
 
-### feats
-- [ ] cancel query
-- [ ] settings page instead of a modal - vim mode should be in here
-- [ ] update dialog to look better (use shadcn) - use shadcn command for the quic action dialog
+### Recently Completed (2025-01-16)
+- [x] settings page with Cmd+, shortcut (4 tabs: General, Editor, Display, Connections)
+- [x] update command palette to use shadcn Command component
+- [x] read only mode implementation with backend enforcement (only SELECT, DESCRIBE, DESC, SHOW, EXPLAIN)
+- [x] manage connections in settings (create, edit, delete)
+- [x] connection URL parser (paste postgres://user:pass@host:port/db to auto-fill)
+- [x] test connection button on connection form
+- [x] enhanced cmd+k with ALL commands (SELECT, INSERT, UPDATE, DELETE, DESCRIBE, COUNT per table)
+- [x] modern app layout with AppNew.tsx (resizable panels, shadcn sidebar)
+- [x] layout direction toggle (vertical/horizontal split)
+- [x] styling improvements:
+  - [x] sidebar toggle button in header
+  - [x] connection dropdown with "+" for new connection
+  - [x] read-only mode indicator in header
+  - [x] layout direction toggle button
+  - [x] CMD+K button in header
+
+### Priority Features (Next to Implement)
+- [ ] PostgreSQL schema selector (switch between public, custom schemas, etc.)
+- [ ] cancel query (abort long-running queries)
+- [ ] auto connect to previously used connection on startup
+- [ ] column visibility toggle (show/hide columns in results)
+- [ ] better git integration (commit, push, pull in app) - **currently placeholder in sidebar footer**
+
+### Future Features
 - [ ] inline data editing
-- [ ] search & filter within results
-- [ ] better git integration (commit, push, pull in app) - **currently commented out, needs fixing**
-- [ ] read only mode implementation: only allow select, describe, and count queries - store this in the config for the specific environment, for example, maybe whenever i want to use prod env, i want it set to read only
-- [ ] variables (maybe not needed?)
-- [ ] ERD
-- [ ] schema comparison (dev, staging, prod)
-- [ ] robust table manipulation
-- [ ] other languages
+- [ ] search & filter within results (beyond current column filters)
+- [ ] snippet-style tabbing for query templates (e.g., UPDATE users SET $1 WHERE $2)
+- [ ] multi-row selection & manipulation
+- [ ] ERD (entity relationship diagram)
+- [ ] schema comparison (dev, staging, prod) - see detailed mockup below
+- [ ] robust table manipulation (create, alter, drop tables from UI)
+- [ ] variables system (maybe not needed?)
+- [ ] other database types:
   - mysql
   - mongodb (nosql)
-- [ ] styling:
-  - left sidebar needs to be able to move
-  - update header: should look like this from left to right: 
-    - sidebar toggle, 
-    - "Env [prod]" (the env name is a dropdown to click on and a plus button is in the dropdown to create a new connection), 
-    - read only mode
-    - on far right side: toggle which way the results are displayed (vertical or horizontal), then a "CMD+K" button to toggle the quick actions menu
-  - bottom of sidebar: git actions (commit, push, pull, or "init")
-  - table columns hide and show
-  - better look for the editor, looks out of place (style and everything)
-- [ ] snippet stype tabbing, for example when you do the "cmd+k" and do the "update user" command, it should write in the the editor: "UPDATE users SET name = '$1' WHERE id = $2;" and then you can tab to the next field
-- [ ] manage connections in settings (create, delete, rename, etc.)
-- [ ] open settings with command + , 
-- [ ] make table area scrollable from left to right
-- [ ] header information should be in the very top of the app, right next to the "x", "-", and expand buttons on mac. this may be a tauri setting.
-- [ ] for new connections, allow the user to enter a url string and have it auto-filled in the form
-- [ ] add test connection button on connection form
-- [ ] "Schema" dropdown should actaully be called "Tables"
-- [ ] create a "Schema" dropdown section to change between psql schema (like public, etc.)
-- [ ] update the cmd+k shortcut to have all commands
-- [ ] auto connect to your previously used connection
-- [ ] multi-row selection & manipulation
 
-example of schema comparison:
+### Styling Polish (Low Priority)
+- [ ] make table area horizontally scrollable
+- [ ] header in native macOS title bar (next to traffic lights)
+- [ ] bottom of sidebar: git actions UI (commit, push, pull, init)
+- [ ] improved editor styling (better integration with overall design)
+
+---
+
+## Design Mockups & Examples
+
+### Schema Comparison Feature (Detailed Mockup)
+
+Example of schema comparison UI:
 ```
 ┌─────────────────────────────────────────────────────┐
 │ Schema Comparison: development → production         │

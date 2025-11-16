@@ -1,5 +1,15 @@
-import { useState, useEffect, useRef, memo } from "react";
-import type { DatabaseSchema, QueryHistoryEntry } from '../../types';
+import { memo } from "react";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "../ui/command";
+import { Database, History as HistoryIcon, Search } from "lucide-react";
+import type { DatabaseSchema, QueryHistoryEntry } from "../../types";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -14,7 +24,8 @@ interface Command {
   label: string;
   description: string;
   query: string;
-  category: "table" | "history" | "quick";
+  category: "table" | "history";
+  icon?: React.ReactNode;
 }
 
 export const CommandPalette = memo(function CommandPalette({
@@ -24,18 +35,6 @@ export const CommandPalette = memo(function CommandPalette({
   history,
   onExecuteQuery,
 }: CommandPaletteProps) {
-  const [search, setSearch] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
   // Build commands list
   const commands: Command[] = [];
 
@@ -51,6 +50,7 @@ export const CommandPalette = memo(function CommandPalette({
         description: `Select all from ${tableName} (limit 100)`,
         query: `SELECT * FROM ${tableName} LIMIT 100;`,
         category: "table",
+        icon: <Database className="h-4 w-4" />,
       });
 
       // UPDATE command
@@ -58,8 +58,9 @@ export const CommandPalette = memo(function CommandPalette({
         id: `update-${tableName}`,
         label: `UPDATE ${tableName}`,
         description: `Update records in ${tableName}`,
-        query: `UPDATE ${tableName} SET  WHERE ;`,
+        query: `UPDATE ${tableName} SET column = 'value' WHERE condition;`,
         category: "table",
+        icon: <Database className="h-4 w-4" />,
       });
 
       // DESCRIBE command
@@ -76,6 +77,7 @@ FROM information_schema.columns
 WHERE table_name = '${tableName}'
 ORDER BY ordinal_position;`,
         category: "table",
+        icon: <Search className="h-4 w-4" />,
       });
 
       // COUNT command
@@ -85,6 +87,27 @@ ORDER BY ordinal_position;`,
         description: `Count rows in ${tableName}`,
         query: `SELECT COUNT(*) FROM ${tableName};`,
         category: "table",
+        icon: <Database className="h-4 w-4" />,
+      });
+
+      // INSERT command
+      commands.push({
+        id: `insert-${tableName}`,
+        label: `INSERT ${tableName}`,
+        description: `Insert new record into ${tableName}`,
+        query: `INSERT INTO ${tableName} (column1, column2) VALUES ('value1', 'value2');`,
+        category: "table",
+        icon: <Database className="h-4 w-4" />,
+      });
+
+      // DELETE command
+      commands.push({
+        id: `delete-${tableName}`,
+        label: `DELETE ${tableName}`,
+        description: `Delete records from ${tableName}`,
+        query: `DELETE FROM ${tableName} WHERE condition;`,
+        category: "table",
+        icon: <Database className="h-4 w-4" />,
       });
     });
   }
@@ -93,157 +116,90 @@ ORDER BY ordinal_position;`,
   history.slice(0, 5).forEach((entry) => {
     commands.push({
       id: `history-${entry.id}`,
-      label: entry.query.substring(0, 50) + (entry.query.length > 50 ? "..." : ""),
-      description: `Recent • ${entry.row_count} rows in ${entry.execution_time_ms}ms`,
+      label:
+        entry.query.substring(0, 60) + (entry.query.length > 60 ? "..." : ""),
+      description: `${entry.row_count} rows in ${entry.execution_time_ms}ms`,
       query: entry.query,
       category: "history",
+      icon: <HistoryIcon className="h-4 w-4" />,
     });
   });
 
-  // Filter commands based on search
-  const filteredCommands = commands.filter((cmd) =>
-    cmd.label.toLowerCase().includes(search.toLowerCase()) ||
-    cmd.description.toLowerCase().includes(search.toLowerCase())
-  );
-
   // Group by category
-  const groupedCommands = {
-    quick: filteredCommands.filter((c) => c.category === "quick"),
-    table: filteredCommands.filter((c) => c.category === "table"),
-    history: filteredCommands.filter((c) => c.category === "history"),
-  };
-
-  // Flatten for keyboard navigation
-  const flatCommands = [
-    ...groupedCommands.table,
-    ...groupedCommands.history,
-  ];
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Escape") {
-      onClose();
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setSelectedIndex((prev) => Math.min(prev + 1, flatCommands.length - 1));
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setSelectedIndex((prev) => Math.max(prev - 1, 0));
-    } else if (e.key === "Enter" && flatCommands[selectedIndex]) {
-      e.preventDefault();
-      handleSelect(flatCommands[selectedIndex]);
-    }
-  };
+  const tableCommands = commands.filter((c) => c.category === "table");
+  const historyCommands = commands.filter((c) => c.category === "history");
 
   const handleSelect = (command: Command) => {
     onExecuteQuery(command.query);
     onClose();
-    setSearch("");
-    setSelectedIndex(0);
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center pt-32 z-50"
-      onClick={onClose}
+    <CommandDialog
+      open={isOpen}
+      onOpenChange={onClose}
+      title="Command Palette"
+      description="Search for tables, commands, or recent queries"
     >
-      <div
-        className="bg-gray-800 rounded-lg border border-gray-700 w-full max-w-2xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleKeyDown}
-      >
-        {/* Search Input */}
-        <div className="p-4 border-b border-gray-700">
-          <input
-            ref={inputRef}
-            type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setSelectedIndex(0);
-            }}
-            placeholder="Search for tables, commands, or recent queries..."
-            className="w-full px-4 py-3 bg-gray-900 rounded border border-gray-700 focus:border-blue-500 focus:outline-none text-lg"
-          />
-        </div>
-
-        {/* Commands List */}
-        <div className="max-h-96 overflow-y-auto">
-          {flatCommands.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              {schema?.tables.length === 0 ? (
-                <>
-                  <p className="text-sm">No tables available</p>
-                  <p className="text-xs mt-2">Connect to a database first</p>
-                </>
-              ) : (
-                <p className="text-sm">No results found</p>
-              )}
+      <CommandInput placeholder="Search for tables, commands, or recent queries..." />
+      <CommandList>
+        <CommandEmpty>
+          {schema?.tables.length === 0 ? (
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-sm">No tables available</p>
+              <p className="text-xs text-muted-foreground">
+                Connect to a database first
+              </p>
             </div>
           ) : (
-            <>
-              {groupedCommands.table.length > 0 && (
-                <div>
-                  <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-900">
-                    TABLE COMMANDS
-                  </div>
-                  {groupedCommands.table.map((cmd) => {
-                    const globalIdx = flatCommands.indexOf(cmd);
-                    return (
-                      <button
-                        key={cmd.id}
-                        onClick={() => handleSelect(cmd)}
-                        className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition border-b border-gray-700 last:border-b-0 ${
-                          globalIdx === selectedIndex ? "bg-gray-700" : ""
-                        }`}
-                      >
-                        <p className="text-sm font-medium">{cmd.label}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {cmd.description}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              {groupedCommands.history.length > 0 && (
-                <div>
-                  <div className="px-4 py-2 text-xs font-semibold text-gray-500 bg-gray-900">
-                    RECENT QUERIES
-                  </div>
-                  {groupedCommands.history.map((cmd) => {
-                    const globalIdx = flatCommands.indexOf(cmd);
-                    return (
-                      <button
-                        key={cmd.id}
-                        onClick={() => handleSelect(cmd)}
-                        className={`w-full text-left px-4 py-3 hover:bg-gray-700 transition border-b border-gray-700 last:border-b-0 ${
-                          globalIdx === selectedIndex ? "bg-gray-700" : ""
-                        }`}
-                      >
-                        <p className="text-sm font-mono">{cmd.label}</p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {cmd.description}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </>
+            <p className="text-sm">No results found</p>
           )}
-        </div>
+        </CommandEmpty>
 
-        {/* Footer */}
-        <div className="px-4 py-3 border-t border-gray-700 text-xs text-gray-500 flex items-center justify-between">
-          <div className="flex gap-4">
-            <span>↑↓ Navigate</span>
-            <span>↵ Select</span>
-            <span>Esc Close</span>
-          </div>
-          <span>⌘K to toggle</span>
-        </div>
-      </div>
-    </div>
+        {tableCommands.length > 0 && (
+          <CommandGroup heading="Table Commands">
+            {tableCommands.map((cmd) => (
+              <CommandItem
+                key={cmd.id}
+                value={`${cmd.label} ${cmd.description}`}
+                onSelect={() => handleSelect(cmd)}
+              >
+                {cmd.icon}
+                <div className="flex flex-col">
+                  <span className="font-medium">{cmd.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {cmd.description}
+                  </span>
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+
+        {tableCommands.length > 0 && historyCommands.length > 0 && (
+          <CommandSeparator />
+        )}
+
+        {historyCommands.length > 0 && (
+          <CommandGroup heading="Recent Queries">
+            {historyCommands.map((cmd) => (
+              <CommandItem
+                key={cmd.id}
+                value={`${cmd.label} ${cmd.description}`}
+                onSelect={() => handleSelect(cmd)}
+              >
+                {cmd.icon}
+                <div className="flex flex-col">
+                  <span className="font-mono text-xs">{cmd.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {cmd.description}
+                  </span>
+                </div>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
+      </CommandList>
+    </CommandDialog>
   );
 });
