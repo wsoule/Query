@@ -5,6 +5,7 @@ pub struct ColumnInfo {
     pub column_name: String,
     pub data_type: String,
     pub is_nullable: String,
+    pub is_primary_key: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

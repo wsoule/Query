@@ -118,7 +118,7 @@ export const ProjectSettings = memo(function ProjectSettings({
 
           <div className="bg-blue-900/20 border border-blue-700 rounded p-3">
             <p className="text-xs text-blue-300">
-              <strong>💡 Tip:</strong> Use different project directories to organize connections by environment (dev, staging, prod) or by client/project.
+              <strong>Tip:</strong> Use different project directories to organize connections by environment (dev, staging, prod) or by client/project.
             </p>
           </div>
         </div>

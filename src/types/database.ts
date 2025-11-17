@@ -2,6 +2,7 @@ export interface ColumnInfo {
   column_name: string;
   data_type: string;
   is_nullable: string;
+  is_primary_key: boolean;
 }
 
 export interface TableInfo {

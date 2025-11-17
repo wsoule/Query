@@ -135,6 +135,33 @@ pub async fn get_database_schema(
             .try_get("table_name")
             .map_err(|e| format!("Failed to get table name: {}", e))?;
 
+        // Get primary key columns for this table
+        let pk_rows = sqlx::query(
+            "SELECT kcu.column_name
+             FROM information_schema.table_constraints tco
+             JOIN information_schema.key_column_usage kcu
+               ON kcu.constraint_name = tco.constraint_name
+               AND kcu.constraint_schema = tco.constraint_schema
+             WHERE tco.constraint_type = 'PRIMARY KEY'
+               AND kcu.table_schema = $1
+               AND kcu.table_name = $2
+             ORDER BY kcu.ordinal_position",
+        )
+        .bind(&schema_name)
+        .bind(&table_name)
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| format!("Failed to fetch primary keys: {}", e))?;
+
+        // Build a set of primary key column names for fast lookup
+        let mut pk_columns = std::collections::HashSet::new();
+        for pk_row in pk_rows {
+            let pk_col: String = pk_row
+                .try_get("column_name")
+                .map_err(|e| format!("Failed to get pk column name: {}", e))?;
+            pk_columns.insert(pk_col);
+        }
+
         let column_rows = sqlx::query(
             "SELECT column_name, data_type, is_nullable
              FROM information_schema.columns
@@ -150,16 +177,19 @@ pub async fn get_database_schema(
 
         let mut columns = Vec::new();
         for col_row in column_rows {
+            let column_name: String = col_row
+                .try_get("column_name")
+                .map_err(|e| format!("Failed to get column name: {}", e))?;
+
             columns.push(ColumnInfo {
-                column_name: col_row
-                    .try_get("column_name")
-                    .map_err(|e| format!("Failed to get column name: {}", e))?,
+                column_name: column_name.clone(),
                 data_type: col_row
                     .try_get("data_type")
                     .map_err(|e| format!("Failed to get data type: {}", e))?,
                 is_nullable: col_row
                     .try_get("is_nullable")
                     .map_err(|e| format!("Failed to get is_nullable: {}", e))?,
+                is_primary_key: pk_columns.contains(&column_name),
             });
         }
 

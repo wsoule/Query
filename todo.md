@@ -57,9 +57,17 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
   - [x] Copy selected rows to clipboard (CSV/JSON)
   - [x] Visual feedback for selected rows
   - [x] Keyboard shortcuts (Escape to clear)
+- [x] inline data editing
+  - [x] Edit mode toggle with visual indicator
+  - [x] Double-click cells to edit values
+  - [x] Dirty data tracking with visual feedback (blue border)
+  - [x] Save Changes button (appears when dirty data exists)
+  - [x] Generate UPDATE SQL using primary keys
+  - [x] Execute updates and re-fetch results
+  - [x] Read-only mode enforcement
+  - [x] Primary key validation (editing disabled without PK)
 
 ### Priority Features
-- [ ] inline data editing
 - [ ] better git integration (commit, push, pull in app) - **currently placeholder in sidebar footer**
 - [ ] snippet-style tabbing for query templates (e.g., UPDATE users SET $1 WHERE $2)
 
@@ -77,6 +85,9 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
 - [ ] header in native macOS title bar (next to traffic lights)
 - [ ] bottom of sidebar: git actions UI (commit, push, pull, init)
 - [ ] improved editor styling (better integration with overall design)
+- [ ] make ui more compact 
+  - (moving things into the same rows: results row, edit row on another line, selected meta data on another row, but this could all be moved into one row.)
+  - 3 instances of same thing: # rows & time to execute query
 
 ---
 

@@ -1,4 +1,4 @@
-import { useMemo, useState, memo, useRef, useEffect } from "react";
+import { useMemo, useState, memo, useRef, useEffect, useCallback } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,25 +19,160 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { EyeOff, Search, X, Copy, CheckSquare } from "lucide-react";
+import { EyeOff, Search, X, Copy, CheckSquare, Edit3, Save } from "lucide-react";
 import { Input } from "../ui/input";
 import { Badge } from "../ui/badge";
 import { IndeterminateCheckbox } from "../ui/indeterminate-checkbox";
 import { cn } from "@/lib/utils";
-import type { QueryResult } from '../../types';
+import type { QueryResult, ConnectionConfig, DatabaseSchema } from '../../types';
+import { EditableCell } from './EditableCell';
+import { invoke } from "@tauri-apps/api/core";
 
 interface ResultsTableEnhancedProps {
   result: QueryResult | null;
   compact?: boolean;
+  config?: ConnectionConfig;
+  schema?: DatabaseSchema | null;
+  originalQuery?: string;
+  onRefresh?: () => void;
 }
 
-export const ResultsTableEnhanced = memo(function ResultsTableEnhanced({ result, compact = false }: ResultsTableEnhancedProps) {
+export const ResultsTableEnhanced = memo(function ResultsTableEnhanced({
+  result,
+  compact = false,
+  config,
+  schema,
+  originalQuery,
+  onRefresh,
+}: ResultsTableEnhancedProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [globalFilter, setGlobalFilter] = useState('');
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [editMode, setEditMode] = useState(false);
+  const [dirtyData, setDirtyData] = useState<Map<number, Map<string, any>>>(new Map());
+  const [savingChanges, setSavingChanges] = useState(false);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  // Handle cell update
+  const handleCellUpdate = (rowIndex: number, columnId: string, value: any) => {
+    setDirtyData((prev) => {
+      const newMap = new Map(prev);
+      if (!newMap.has(rowIndex)) {
+        newMap.set(rowIndex, new Map());
+      }
+      newMap.get(rowIndex)!.set(columnId, value);
+      return newMap;
+    });
+  };
+
+  // Check if a cell is dirty
+  const isCellDirty = (rowIndex: number, columnId: string): boolean => {
+    return dirtyData.has(rowIndex) && dirtyData.get(rowIndex)!.has(columnId);
+  };
+
+  // Extract table name from query (simple heuristic)
+  const getTableNameFromQuery = useCallback((query: string): string | null => {
+    if (!query) return null;
+    const match = query.match(/FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)/i);
+    return match ? match[1] : null;
+  }, []);
+
+  // Get primary key columns for the table
+  const getPrimaryKeyColumns = useCallback((tableName: string): string[] => {
+    if (!schema) return [];
+    const table = schema.tables.find((t) => t.table_name === tableName);
+    if (!table) return [];
+    return table.columns.filter((col) => col.is_primary_key).map((col) => col.column_name);
+  }, [schema]);
+
+  // Check if editing is allowed
+  const isEditingAllowed = useMemo(() => {
+    if (!originalQuery || !schema || !config) return false;
+    if (config.readOnly) return false;
+
+    const tableName = getTableNameFromQuery(originalQuery);
+    if (!tableName) return false;
+
+    const pkColumns = getPrimaryKeyColumns(tableName);
+    return pkColumns.length > 0;
+  }, [originalQuery, schema, config, getTableNameFromQuery, getPrimaryKeyColumns]);
+
+  // Generate UPDATE SQL for a row
+  const generateUpdateSQL = (rowIndex: number, tableName: string, pkColumns: string[]): string => {
+    if (!result || !dirtyData.has(rowIndex)) return '';
+
+    const changedColumns = dirtyData.get(rowIndex)!;
+    const rowData = data[rowIndex];
+
+    // Build SET clause
+    const setClause = Array.from(changedColumns.entries())
+      .map(([col, val]) => {
+        if (val === null) return `${col} = NULL`;
+        if (typeof val === 'string') return `${col} = '${val.replace(/'/g, "''")}'`;
+        if (typeof val === 'boolean') return `${col} = ${val}`;
+        return `${col} = ${val}`;
+      })
+      .join(', ');
+
+    // Build WHERE clause using primary keys
+    const whereClause = pkColumns
+      .map((pkCol) => {
+        const val = rowData[pkCol];
+        if (val === null) return `${pkCol} IS NULL`;
+        if (typeof val === 'string') return `${pkCol} = '${val.replace(/'/g, "''")}'`;
+        if (typeof val === 'boolean') return `${pkCol} = ${val}`;
+        return `${pkCol} = ${val}`;
+      })
+      .join(' AND ');
+
+    return `UPDATE ${tableName} SET ${setClause} WHERE ${whereClause};`;
+  };
+
+  // Save all changes
+  const saveChanges = async () => {
+    if (!config || !originalQuery || !result || dirtyData.size === 0) return;
+
+    const tableName = getTableNameFromQuery(originalQuery);
+    if (!tableName) {
+      console.error('Unable to determine table name from query');
+      return;
+    }
+
+    const pkColumns = getPrimaryKeyColumns(tableName);
+    if (pkColumns.length === 0) {
+      console.error('Table has no primary key - cannot edit');
+      return;
+    }
+
+    setSavingChanges(true);
+
+    try {
+      // Execute each UPDATE query
+      let successCount = 0;
+      for (const [rowIndex] of dirtyData.entries()) {
+        const updateSQL = generateUpdateSQL(rowIndex, tableName, pkColumns);
+        console.log('Executing UPDATE:', updateSQL);
+        await invoke('execute_query', { config, query: updateSQL });
+        successCount++;
+      }
+
+      // Clear dirty data
+      setDirtyData(new Map());
+
+      // Re-fetch results
+      if (onRefresh) {
+        await onRefresh();
+      }
+
+      console.log(`Successfully updated ${successCount} row${successCount > 1 ? 's' : ''}`);
+    } catch (error) {
+      console.error('Error saving changes:', error);
+    } finally {
+      setSavingChanges(false);
+    }
+  };
 
   // Transform data for TanStack Table
   const data = useMemo(() => {
@@ -81,7 +216,28 @@ export const ResultsTableEnhanced = memo(function ResultsTableEnhanced({ result,
       accessorKey: col,
       header: col,
       cell: (info: any) => {
-        const value = info.getValue();
+        const originalValue = info.getValue();
+        const rowIndex = info.row.index;
+        const columnId = info.column.id;
+
+        // Check if we have a dirty value for this cell
+        const isDirty = isCellDirty(rowIndex, columnId);
+        const value = isDirty ? dirtyData.get(rowIndex)!.get(columnId) : originalValue;
+
+        // Use EditableCell when in edit mode
+        if (editMode) {
+          return (
+            <EditableCell
+              value={value}
+              rowIndex={rowIndex}
+              columnId={columnId}
+              onUpdate={handleCellUpdate}
+              isDirty={isDirty}
+            />
+          );
+        }
+
+        // Default read-only rendering (show dirty value if exists)
         if (value === null) return <span className="text-gray-500 italic">null</span>;
         if (typeof value === "boolean") return value ? "true" : "false";
         if (typeof value === "object") return JSON.stringify(value);
@@ -100,7 +256,7 @@ export const ResultsTableEnhanced = memo(function ResultsTableEnhanced({ result,
     }));
 
     return [selectColumn, ...dataColumns];
-  }, [result]);
+  }, [result, editMode, dirtyData]);
 
   const table = useReactTable({
     data,
@@ -262,6 +418,38 @@ export const ResultsTableEnhanced = memo(function ResultsTableEnhanced({ result,
                 }}
               >
                 Clear filters
+              </Button>
+            )}
+            <Button
+              variant={editMode ? "default" : "outline"}
+              size="sm"
+              className="h-7 gap-2"
+              onClick={() => setEditMode(!editMode)}
+              disabled={!isEditingAllowed}
+              title={
+                !isEditingAllowed
+                  ? config?.readOnly
+                    ? "Editing disabled in read-only mode"
+                    : "Editing disabled: table has no primary key or query is too complex"
+                  : "Toggle edit mode"
+              }
+            >
+              <Edit3 className="h-3 w-3" />
+              <span className="text-xs">Edit</span>
+            </Button>
+            {dirtyData.size > 0 && (
+              <Button
+                variant="default"
+                size="sm"
+                className="h-7 gap-2 bg-primary"
+                onClick={saveChanges}
+                disabled={savingChanges}
+                title="Save all changes to database"
+              >
+                <Save className="h-3 w-3" />
+                <span className="text-xs">
+                  {savingChanges ? 'Saving...' : `Save Changes (${dirtyData.size})`}
+                </span>
               </Button>
             )}
             <DropdownMenu>

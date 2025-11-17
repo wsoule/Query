@@ -347,7 +347,7 @@ export default function AppNew() {
       const isAllowed = allowedCommands.some(cmd => trimmedQuery.startsWith(cmd));
 
       if (!isAllowed) {
-        setStatus("❌ Read-only mode: Only SELECT, DESCRIBE, and SHOW queries are allowed");
+        setStatus("Read-only mode: Only SELECT, DESCRIBE, and SHOW queries are allowed");
         return;
       }
     }
@@ -798,6 +798,10 @@ export default function AppNew() {
                   <ResultsTableEnhanced
                     result={result}
                     compact={compactView}
+                    config={config}
+                    schema={schema}
+                    originalQuery={query}
+                    onRefresh={runQuery}
                   />
                 </div>
               </ResizablePanel>
