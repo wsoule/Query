@@ -18,3 +18,8 @@ export type {
   GitStatus,
   GitCommit,
 } from './git';
+
+// Settings types
+export type {
+  RecentProject,
+} from './settings';

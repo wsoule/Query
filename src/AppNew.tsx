@@ -36,6 +36,7 @@ import {
   Minimize,
   Plus,
   Database,
+  Folder,
 } from "lucide-react";
 import { SqlEditor } from "./components/editor/SqlEditor";
 import { ResultsTableEnhanced } from "./components/results/ResultsTableEnhanced";
@@ -51,6 +52,7 @@ import type {
   QueryResult,
   QueryHistoryEntry,
   SavedQuery,
+  RecentProject,
 } from "./types";
 import { DEFAULT_CONNECTION } from "./constants";
 
@@ -76,6 +78,7 @@ export default function AppNew() {
   const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(
     null,
   );
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
   const [editingConnection, setEditingConnection] = useState<ConnectionConfig | null>(null);
 
@@ -106,6 +109,7 @@ export default function AppNew() {
       loadQueryHistory();
       loadSavedQueries();
       loadCurrentProjectPath();
+      loadRecentProjects();
 
       // Check if auto-connect is enabled
       try {
@@ -222,6 +226,15 @@ export default function AppNew() {
       setCurrentProjectPath(path);
     } catch (error) {
       console.error("Failed to load project path:", error);
+    }
+  }, []);
+
+  const loadRecentProjects = useCallback(async () => {
+    try {
+      const projects = await invoke<RecentProject[]>("get_recent_projects");
+      setRecentProjects(projects);
+    } catch (error) {
+      console.error("Failed to load recent projects:", error);
     }
   }, []);
 
@@ -522,6 +535,32 @@ export default function AppNew() {
     }
   }, [connections]);
 
+  const handleProjectChange = useCallback(async (path: string) => {
+    try {
+      // Set the new project path
+      await invoke("set_project_path", { path });
+
+      // Update current project path
+      setCurrentProjectPath(path);
+
+      // Reload all project-specific data
+      await loadSavedConnections();
+      loadQueryHistory();
+      loadSavedQueries();
+      loadRecentProjects();
+
+      // Clear current connection and schema
+      setConnected(false);
+      connectedRef.current = false;
+      setSchema(null);
+      setResult(null);
+      setStatus(`Switched to project: ${path}`);
+    } catch (error) {
+      setStatus(`Failed to switch project: ${error}`);
+      console.error("Failed to switch project:", error);
+    }
+  }, [loadSavedConnections, loadQueryHistory, loadSavedQueries, loadRecentProjects]);
+
   const handleExecuteFromPalette = useCallback(
     (q: string) => {
       setQuery(q);
@@ -670,6 +709,59 @@ export default function AppNew() {
                     <div className="flex items-center gap-2">
                       <Plus className="h-3 w-3" />
                       <span>New Connection</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator orientation="vertical" className="h-5" />
+
+            {/* Project Selector Dropdown */}
+            <div data-tauri-drag-region="false" className="min-w-[150px]">
+              <Select
+                value={currentProjectPath || "default"}
+                onValueChange={(value) => {
+                  if (value === "__browse__") {
+                    // Open file picker for browsing
+                    import("@tauri-apps/plugin-dialog").then(({ open }) => {
+                      open({
+                        directory: true,
+                        multiple: false,
+                        title: "Select Project Directory",
+                      }).then((selected) => {
+                        if (selected) {
+                          handleProjectChange(selected);
+                        }
+                      });
+                    });
+                  } else if (value !== "default") {
+                    handleProjectChange(value);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-7 border-none shadow-none text-sm hover:bg-accent">
+                  <div className="flex items-center gap-2">
+                    <Folder className="h-3 w-3 text-muted-foreground" />
+                    <SelectValue placeholder="Project" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {recentProjects.length > 0 ? (
+                    recentProjects.map((project) => (
+                      <SelectItem key={project.path} value={project.path}>
+                        {project.name || project.path.split("/").pop() || "Project"}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="default" disabled>
+                      <span className="text-xs text-muted-foreground">No recent projects</span>
+                    </SelectItem>
+                  )}
+                  <SelectItem value="__browse__">
+                    <div className="flex items-center gap-2">
+                      <Folder className="h-3 w-3" />
+                      <span>Browse...</span>
                     </div>
                   </SelectItem>
                 </SelectContent>

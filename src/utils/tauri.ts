@@ -7,6 +7,7 @@ import type {
   SavedQuery,
   GitStatus,
   GitCommit,
+  RecentProject,
 } from "../types";
 
 // Connection Management
@@ -118,6 +119,14 @@ export async function getCurrentProjectPath(): Promise<string | null> {
 
 export async function setProjectPath(path: string): Promise<void> {
   await invoke("set_project_path", { path });
+}
+
+export async function getRecentProjects(): Promise<RecentProject[]> {
+  return await invoke<RecentProject[]>("get_recent_projects");
+}
+
+export async function removeRecentProject(path: string): Promise<void> {
+  await invoke("remove_recent_project", { path });
 }
 
 // Git Operations

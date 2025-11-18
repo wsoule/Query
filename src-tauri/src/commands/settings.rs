@@ -5,7 +5,7 @@ use crate::storage::{
 use crate::utils::{
     get_auto_connect_enabled_internal, get_current_project_path_internal, get_last_connection_internal,
     load_project_settings_internal, set_auto_connect_enabled_internal, set_last_connection_internal,
-    set_project_path_internal,
+    set_project_path_internal, get_recent_projects_internal, remove_recent_project_internal, RecentProject,
 };
 
 #[tauri::command]
@@ -73,4 +73,14 @@ pub fn set_auto_connect_enabled(enabled: bool) -> Result<(), String> {
 #[tauri::command]
 pub fn get_auto_connect_enabled() -> Result<bool, String> {
     get_auto_connect_enabled_internal()
+}
+
+#[tauri::command]
+pub fn get_recent_projects() -> Result<Vec<RecentProject>, String> {
+    get_recent_projects_internal()
+}
+
+#[tauri::command]
+pub fn remove_recent_project(path: String) -> Result<(), String> {
+    remove_recent_project_internal(path)
 }

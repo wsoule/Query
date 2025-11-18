@@ -89,14 +89,14 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
   - 3 instances of same thing: # rows & time to execute query
 - [x] ERD (entity relationship diagram)
 - [x] ability in top menu to open the current project directory
+- [x] show recent projects in project selector dropdown (a project is a directory)
 
 ### Priority Features
-- [ ] show recent projects in project selector dropdown (a project is a directory)
 
 ### Future Features
 - [ ] schema comparison (dev, staging, prod) - see detailed mockup below
 - [ ] robust table manipulation (create, alter, drop tables from UI)
-- [ ] variables system (maybe not needed?)
+- [ ] variables system, e.g. ${1:text} in the query editor then have a variable editor to edit them.
 - [ ] other database types:
   - mysql
   - mongodb (nosql)
@@ -104,6 +104,7 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
 ### Low Priority
 - [ ] cancel query (abort long-running queries)
 - [ ] break out large files to separate files
+- [ ] general refactoring and cleanup
 
 ---
 

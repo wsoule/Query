@@ -25,7 +25,7 @@ import {
   Folder,
   FolderOpen,
 } from "lucide-react";
-import type { ConnectionConfig } from "../../types";
+import type { ConnectionConfig, RecentProject } from "../../types";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
@@ -70,13 +70,24 @@ export const Settings = memo(function Settings({
   const [isChangingPath, setIsChangingPath] = useState(false);
   const [autoConnectEnabled, setAutoConnectEnabled] = useState(false);
   const [lastConnectionName, setLastConnectionName] = useState<string | null>(null);
+  const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
 
-  // Load auto-connect settings when modal opens
+  // Load auto-connect settings and recent projects when modal opens
   useEffect(() => {
     if (isOpen) {
       loadAutoConnectSettings();
+      loadRecentProjects();
     }
   }, [isOpen]);
+
+  const loadRecentProjects = useCallback(async () => {
+    try {
+      const projects = await invoke<RecentProject[]>("get_recent_projects");
+      setRecentProjects(projects);
+    } catch (error) {
+      console.error("Failed to load recent projects:", error);
+    }
+  }, []);
 
   const loadAutoConnectSettings = useCallback(async () => {
     try {
@@ -126,6 +137,25 @@ export const Settings = memo(function Settings({
       console.error("Failed to reveal project directory:", error);
     }
   }, [currentProjectPath]);
+
+  const handleRemoveRecentProject = useCallback(async (path: string) => {
+    try {
+      await invoke("remove_recent_project", { path });
+      await loadRecentProjects();
+    } catch (error) {
+      console.error("Failed to remove recent project:", error);
+    }
+  }, [loadRecentProjects]);
+
+  const handleSwitchProject = useCallback(async (path: string) => {
+    try {
+      await invoke("set_project_path", { path });
+      await onProjectPathChange();
+      await loadRecentProjects();
+    } catch (error) {
+      console.error("Failed to switch project:", error);
+    }
+  }, [onProjectPathChange, loadRecentProjects]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -191,6 +221,59 @@ export const Settings = memo(function Settings({
                     <p className="text-xs text-muted-foreground">
                       All connections, queries, and history are stored in this directory
                     </p>
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Recent Projects */}
+                <div>
+                  <h3 className="text-sm font-medium mb-3">Recent Projects</h3>
+                  <div className="space-y-2">
+                    {recentProjects.length > 0 ? (
+                      recentProjects.map((project) => (
+                        <div
+                          key={project.path}
+                          className="flex items-center gap-2 p-2 rounded-md border"
+                        >
+                          <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm">
+                              {project.name || project.path.split("/").pop() || "Project"}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {project.path}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {new Date(project.last_accessed).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSwitchProject(project.path)}
+                              disabled={project.path === currentProjectPath}
+                              title="Switch to this project"
+                            >
+                              <FolderOpen className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveRecentProject(project.path)}
+                              title="Remove from recent"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        No recent projects yet
+                      </p>
+                    )}
                   </div>
                 </div>
 
