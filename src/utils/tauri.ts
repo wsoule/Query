@@ -5,6 +5,8 @@ import type {
   QueryResult,
   QueryHistoryEntry,
   SavedQuery,
+  GitStatus,
+  GitCommit,
 } from "../types";
 
 // Connection Management
@@ -116,4 +118,33 @@ export async function getCurrentProjectPath(): Promise<string | null> {
 
 export async function setProjectPath(path: string): Promise<void> {
   await invoke("set_project_path", { path });
+}
+
+// Git Operations
+export async function checkGitRepo(): Promise<boolean> {
+  return await invoke<boolean>("check_git_repo");
+}
+
+export async function gitInit(): Promise<string> {
+  return await invoke<string>("git_init");
+}
+
+export async function getGitStatus(): Promise<GitStatus> {
+  return await invoke<GitStatus>("get_git_status");
+}
+
+export async function getGitLog(limit: number = 10): Promise<GitCommit[]> {
+  return await invoke<GitCommit[]>("get_git_log", { limit });
+}
+
+export async function gitCommit(message: string): Promise<string> {
+  return await invoke<string>("git_commit", { message });
+}
+
+export async function gitPush(): Promise<string> {
+  return await invoke<string>("git_push");
+}
+
+export async function gitPull(): Promise<string> {
+  return await invoke<string>("git_pull");
 }

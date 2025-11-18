@@ -12,3 +12,9 @@ export type {
   QueryHistoryEntry,
   SavedQuery,
 } from './query';
+
+// Git types
+export type {
+  GitStatus,
+  GitCommit,
+} from './git';

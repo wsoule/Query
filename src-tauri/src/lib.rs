@@ -48,6 +48,14 @@ pub fn run() {
             save_connection_password,
             get_connection_password,
             delete_connection_password,
+            // Git commands
+            check_git_repo,
+            get_git_status,
+            get_git_log,
+            git_init,
+            git_commit,
+            git_push,
+            git_pull,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

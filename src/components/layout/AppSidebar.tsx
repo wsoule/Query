@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import {
   Sidebar,
   SidebarContent,
@@ -27,8 +27,12 @@ import {
   SelectValue,
 } from "../ui/select";
 import { ScrollArea } from "../ui/scroll-area";
+import { Button } from "../ui/button";
 import {
   GitBranch,
+  GitCommit,
+  Upload,
+  Download,
   Plus,
   Minus,
   ChevronRight,
@@ -44,7 +48,10 @@ import type {
   QueryHistoryEntry,
   SavedQuery,
   ConnectionConfig,
+  GitStatus,
 } from "../../types";
+import { getGitStatus, gitInit } from "../../utils/tauri";
+import { GitCommitModal } from "../modals/GitCommitModal";
 
 interface AppSidebarProps {
   schema: DatabaseSchema | null;
@@ -119,6 +126,11 @@ export const AppSidebar = memo(function AppSidebar({
   onTableDelete,
 }: AppSidebarProps) {
   const [expandedTables, setExpandedTables] = useState<Set<string>>(new Set());
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
+  const [showCommitModal, setShowCommitModal] = useState(false);
+  const [initializing, setInitializing] = useState(false);
+  const [gitError, setGitError] = useState<string | null>(null);
+  const [gitSuccess, setGitSuccess] = useState<string | null>(null);
 
   const toggleTable = (tableName: string) => {
     const newExpanded = new Set(expandedTables);
@@ -129,6 +141,33 @@ export const AppSidebar = memo(function AppSidebar({
     }
     setExpandedTables(newExpanded);
   };
+
+  // Fetch git status on mount and poll every 10 seconds
+  useEffect(() => {
+    const fetchGitStatus = async () => {
+      try {
+        const status = await getGitStatus();
+        setGitStatus(status);
+      } catch (error) {
+        console.error("Failed to fetch git status:", error);
+      }
+    };
+
+    fetchGitStatus();
+    const interval = setInterval(fetchGitStatus, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-clear git messages after 5 seconds
+  useEffect(() => {
+    if (gitError || gitSuccess) {
+      const timer = setTimeout(() => {
+        setGitError(null);
+        setGitSuccess(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [gitError, gitSuccess]);
 
   const pinnedQueries = savedQueries.filter((q) => q.is_pinned);
   const unpinnedQueries = savedQueries.filter((q) => !q.is_pinned);
@@ -467,18 +506,141 @@ export const AppSidebar = memo(function AppSidebar({
       </SidebarContent>
 
       <SidebarFooter className="border-t">
-        {/* Git Info - TODO: Add interactive git actions later */}
-        <div className="px-3 py-3">
-          <div className="flex items-center gap-2 text-sm">
-            <GitBranch className="h-4 w-4 text-muted-foreground" />
-            <div className="flex-1">
-              <div className="font-medium text-sm">main</div>
-              <div className="text-xs text-muted-foreground">No changes</div>
+        {gitStatus && gitStatus.is_repo ? (
+          <div className="px-3 py-3 space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <GitBranch className="h-4 w-4 text-muted-foreground" />
+              <div className="flex-1">
+                <div className="font-medium text-sm">{gitStatus.branch}</div>
+                <div className="text-xs text-muted-foreground">
+                  {gitStatus.staged + gitStatus.unstaged + gitStatus.untracked === 0
+                    ? "No changes"
+                    : `${gitStatus.staged + gitStatus.unstaged + gitStatus.untracked} changes`}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setGitError(null);
+                  setGitSuccess(null);
+                  setShowCommitModal(true);
+                }}
+                disabled={gitStatus.staged + gitStatus.unstaged + gitStatus.untracked === 0}
+                className="flex-1 h-7 gap-1 text-xs"
+                title="Commit changes"
+              >
+                <GitCommit className="h-3 w-3" />
+                Commit
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setGitError(null);
+                  setGitSuccess(null);
+                  try {
+                    const message = await import("../../utils/tauri").then(({ gitPush }) => gitPush());
+                    setGitSuccess(message);
+                    const status = await getGitStatus();
+                    setGitStatus(status);
+                  } catch (error) {
+                    setGitError(error instanceof Error ? error.message : String(error));
+                  }
+                }}
+                className="flex-1 h-7 gap-1 text-xs"
+                title="Push to remote"
+              >
+                <Upload className="h-3 w-3" />
+                Push
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setGitError(null);
+                  setGitSuccess(null);
+                  try {
+                    const message = await import("../../utils/tauri").then(({ gitPull }) => gitPull());
+                    setGitSuccess(message);
+                    const status = await getGitStatus();
+                    setGitStatus(status);
+                  } catch (error) {
+                    setGitError(error instanceof Error ? error.message : String(error));
+                  }
+                }}
+                className="flex-1 h-7 gap-1 text-xs"
+                title="Pull from remote"
+              >
+                <Download className="h-3 w-3" />
+                Pull
+              </Button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="px-3 py-3 space-y-2">
+            <div className="text-xs text-muted-foreground text-center">
+              Not a git repository
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
+                setInitializing(true);
+                setGitError(null);
+                setGitSuccess(null);
+                try {
+                  const message = await gitInit();
+                  setGitSuccess(message);
+                  // Refresh git status after init
+                  const status = await getGitStatus();
+                  setGitStatus(status);
+                } catch (error) {
+                  setGitError(error instanceof Error ? error.message : String(error));
+                } finally {
+                  setInitializing(false);
+                }
+              }}
+              disabled={initializing}
+              className="w-full h-8 gap-2 text-xs"
+              title="Initialize git repository"
+            >
+              <GitBranch className="h-3 w-3" />
+              {initializing ? "Initializing..." : "Initialize Repository"}
+            </Button>
+          </div>
+        )}
+        {/* Git messages (error/success) */}
+        {(gitError || gitSuccess) && (
+          <div className="px-3 pb-3">
+            {gitError && (
+              <div className="p-2 rounded text-xs bg-destructive/10 border border-destructive text-destructive">
+                {gitError}
+              </div>
+            )}
+            {gitSuccess && (
+              <div className="p-2 rounded text-xs bg-green-500/10 border border-green-500/30 text-green-400">
+                {gitSuccess}
+              </div>
+            )}
+          </div>
+        )}
       </SidebarFooter>
       <SidebarRail />
+
+      {/* Git Commit Modal */}
+      <GitCommitModal
+        isOpen={showCommitModal}
+        onClose={() => setShowCommitModal(false)}
+        gitStatus={gitStatus}
+        onCommitSuccess={(newStatus, message) => {
+          setGitStatus(newStatus);
+          setGitSuccess(message);
+          setShowCommitModal(false);
+        }}
+      />
     </Sidebar>
   );
 });

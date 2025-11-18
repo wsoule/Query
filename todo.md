@@ -66,15 +66,24 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
   - [x] Execute updates and re-fetch results
   - [x] Read-only mode enforcement
   - [x] Primary key validation (editing disabled without PK)
-
-### Priority Features
-- [ ] better git integration (commit, push, pull in app) - **currently placeholder in sidebar footer**
 - [x] snippet-style tabbing for query templates
   - [x] Fixed insertSnippet to use Monaco's native snippet controller
   - [x] Tab navigation between placeholders (${1:text}, ${2:text}, etc.)
   - [x] Added 8 SQL snippet templates in autocomplete (sel, selj, sellj, selagg, ins, upd, del, cte)
   - [x] Snippets work with existing INSERT/UPDATE/DELETE from sidebar
   - [x] Configured editor for optimal snippet support
+- [x] better git integration (commit, push, pull in app)
+  - [x] Live git status in sidebar footer (branch name, change count)
+  - [x] Interactive buttons for Commit, Push, Pull operations
+  - [x] Initialize Repository button when not a git repo
+  - [x] GitCommitModal for committing with message and file list
+  - [x] Commit message input with Cmd+Enter shortcut
+  - [x] Auto-polling git status every 10 seconds
+  - [x] Error handling for non-git repositories
+  - [x] Shell-based git commands (no additional dependencies)
+  - [x] Backend Rust commands: check_git_repo, get_git_status, get_git_log, git_init, git_commit, git_push, git_pull
+
+### Priority Features
 
 ### Future Features
 - [ ] ERD (entity relationship diagram)
@@ -93,6 +102,7 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
 - [ ] make ui more compact 
   - (moving things into the same rows: results row, edit row on another line, selected meta data on another row, but this could all be moved into one row.)
   - 3 instances of same thing: # rows & time to execute query
+- [ ] ability in top menu to open the current project directory
 
 ---
 
