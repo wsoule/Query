@@ -566,3 +566,395 @@ fn generate_warnings(
 
     warnings
 }
+
+/// Generate PostgreSQL migration script from schema comparison
+pub fn generate_migration_script(comparison: &SchemaComparison) -> String {
+    let mut script = String::new();
+    let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+
+    // Header
+    script.push_str(&format!(
+        "-- ============================================\n\
+         -- Schema Migration Script\n\
+         -- Source: {}\n\
+         -- Target: {}\n\
+         -- Generated: {}\n\
+         -- ============================================\n\n",
+        comparison.source_connection, comparison.target_connection, timestamp
+    ));
+
+    script.push_str(
+        "-- WARNING: This script will make changes to the target database!\n\
+         -- Review carefully before executing.\n\n",
+    );
+
+    let mut has_changes = false;
+
+    // Table modifications
+    let modified_tables: Vec<_> = comparison
+        .table_differences
+        .iter()
+        .filter(|t| matches!(t.status, DiffStatus::Modified))
+        .collect();
+
+    if !modified_tables.is_empty() {
+        has_changes = true;
+        script.push_str(
+            "-- ============================================\n\
+             -- TABLE MODIFICATIONS\n\
+             -- ============================================\n\n",
+        );
+
+        for table_diff in modified_tables {
+            script.push_str(&format!("-- Modify table: {}\n", table_diff.table_name));
+
+            // Column changes
+            for col_change in &table_diff.column_changes {
+                match col_change.status {
+                    DiffStatus::Added => {
+                        if let Some(target_def) = &col_change.target_definition {
+                            let nullable = if target_def.is_nullable == "YES" {
+                                "NULL"
+                            } else {
+                                "NOT NULL"
+                            };
+                            let default = target_def
+                                .column_default
+                                .as_ref()
+                                .map(|d| format!(" DEFAULT {}", d))
+                                .unwrap_or_default();
+                            script.push_str(&format!(
+                                "ALTER TABLE {} ADD COLUMN {} {} {}{};\n",
+                                table_diff.table_name,
+                                col_change.column_name,
+                                target_def.data_type,
+                                nullable,
+                                default
+                            ));
+                        }
+                    }
+                    DiffStatus::Removed => {
+                        script.push_str(&format!(
+                            "-- WARNING: Dropping column will cause data loss!\n\
+                             ALTER TABLE {} DROP COLUMN {};\n",
+                            table_diff.table_name, col_change.column_name
+                        ));
+                    }
+                    DiffStatus::Modified => {
+                        if let Some(target_def) = &col_change.target_definition {
+                            // Type changes
+                            if col_change.changes.iter().any(|c| c.starts_with("type:")) {
+                                script.push_str(&format!(
+                                    "ALTER TABLE {} ALTER COLUMN {} TYPE {};\n",
+                                    table_diff.table_name, col_change.column_name, target_def.data_type
+                                ));
+                            }
+
+                            // Nullable changes
+                            if col_change
+                                .changes
+                                .iter()
+                                .any(|c| c.starts_with("nullable:"))
+                            {
+                                let nullable_clause = if target_def.is_nullable == "YES" {
+                                    "DROP NOT NULL"
+                                } else {
+                                    "SET NOT NULL"
+                                };
+                                script.push_str(&format!(
+                                    "ALTER TABLE {} ALTER COLUMN {} {};\n",
+                                    table_diff.table_name, col_change.column_name, nullable_clause
+                                ));
+                            }
+
+                            // Default changes
+                            if col_change
+                                .changes
+                                .iter()
+                                .any(|c| c.starts_with("default:"))
+                            {
+                                if let Some(default_val) = &target_def.column_default {
+                                    script.push_str(&format!(
+                                        "ALTER TABLE {} ALTER COLUMN {} SET DEFAULT {};\n",
+                                        table_diff.table_name, col_change.column_name, default_val
+                                    ));
+                                } else {
+                                    script.push_str(&format!(
+                                        "ALTER TABLE {} ALTER COLUMN {} DROP DEFAULT;\n",
+                                        table_diff.table_name, col_change.column_name
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // Index changes
+            for idx_change in &table_diff.index_changes {
+                match idx_change.status {
+                    DiffStatus::Added => {
+                        if let Some(idx_info) = &idx_change.target_definition {
+                            script.push_str(&format!("{};\n", idx_info.definition));
+                        }
+                    }
+                    DiffStatus::Removed => {
+                        script.push_str(&format!("DROP INDEX IF EXISTS {};\n", idx_change.index_name));
+                    }
+                    DiffStatus::Modified => {
+                        // Drop and recreate
+                        script.push_str(&format!("DROP INDEX IF EXISTS {};\n", idx_change.index_name));
+                        if let Some(idx_info) = &idx_change.target_definition {
+                            script.push_str(&format!("{};\n", idx_info.definition));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            // Foreign key changes
+            for fk_change in &table_diff.fk_changes {
+                match fk_change.status {
+                    DiffStatus::Added => {
+                        if let Some(target_fk) = &fk_change.target_definition {
+                            script.push_str(&format!(
+                                "ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({});\n",
+                                target_fk.table_name,
+                                fk_change.constraint_name,
+                                target_fk.column_name,
+                                target_fk.foreign_table_name,
+                                target_fk.foreign_column_name
+                            ));
+                        }
+                    }
+                    DiffStatus::Removed => {
+                        if let Some(source_fk) = &fk_change.source_definition {
+                            script.push_str(&format!(
+                                "ALTER TABLE {} DROP CONSTRAINT IF EXISTS {};\n",
+                                source_fk.table_name, fk_change.constraint_name
+                            ));
+                        }
+                    }
+                    DiffStatus::Modified => {
+                        // Drop and recreate
+                        if let Some(source_fk) = &fk_change.source_definition {
+                            script.push_str(&format!(
+                                "ALTER TABLE {} DROP CONSTRAINT IF EXISTS {};\n",
+                                source_fk.table_name, fk_change.constraint_name
+                            ));
+                        }
+                        if let Some(target_fk) = &fk_change.target_definition {
+                            script.push_str(&format!(
+                                "ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({});\n",
+                                target_fk.table_name,
+                                fk_change.constraint_name,
+                                target_fk.column_name,
+                                target_fk.foreign_table_name,
+                                target_fk.foreign_column_name
+                            ));
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            script.push('\n');
+        }
+    }
+
+    // New tables
+    let new_tables: Vec<_> = comparison
+        .table_differences
+        .iter()
+        .filter(|t| matches!(t.status, DiffStatus::Added))
+        .collect();
+
+    if !new_tables.is_empty() {
+        has_changes = true;
+        script.push_str(
+            "-- ============================================\n\
+             -- NEW TABLES\n\
+             -- ============================================\n\n",
+        );
+
+        for table_diff in new_tables {
+            script.push_str(&format!("-- Create table: {}\n", table_diff.table_name));
+            script.push_str(&format!("CREATE TABLE {} (\n", table_diff.table_name));
+
+            let columns: Vec<String> = table_diff
+                .column_changes
+                .iter()
+                .filter_map(|col| {
+                    if let Some(target_def) = &col.target_definition {
+                        let nullable = if target_def.is_nullable == "YES" {
+                            "NULL"
+                        } else {
+                            "NOT NULL"
+                        };
+                        let default = target_def
+                            .column_default
+                            .as_ref()
+                            .map(|d| format!(" DEFAULT {}", d))
+                            .unwrap_or_default();
+                        let pk = if target_def.is_primary_key {
+                            " PRIMARY KEY"
+                        } else {
+                            ""
+                        };
+                        Some(format!(
+                            "  {} {} {}{}{}",
+                            col.column_name, target_def.data_type, nullable, default, pk
+                        ))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            script.push_str(&columns.join(",\n"));
+            script.push_str("\n);\n\n");
+
+            // Indexes for new table
+            for idx_change in &table_diff.index_changes {
+                if let Some(idx_info) = &idx_change.target_definition {
+                    script.push_str(&format!("{};\n", idx_info.definition));
+                }
+            }
+
+            // Foreign keys for new table
+            for fk_change in &table_diff.fk_changes {
+                if let Some(target_fk) = &fk_change.target_definition {
+                    script.push_str(&format!(
+                        "ALTER TABLE {} ADD CONSTRAINT {} FOREIGN KEY ({}) REFERENCES {} ({});\n",
+                        target_fk.table_name,
+                        fk_change.constraint_name,
+                        target_fk.column_name,
+                        target_fk.foreign_table_name,
+                        target_fk.foreign_column_name
+                    ));
+                }
+            }
+
+            script.push('\n');
+        }
+    }
+
+    // Dropped tables
+    let dropped_tables: Vec<_> = comparison
+        .table_differences
+        .iter()
+        .filter(|t| matches!(t.status, DiffStatus::Removed))
+        .collect();
+
+    if !dropped_tables.is_empty() {
+        has_changes = true;
+        script.push_str(
+            "-- ============================================\n\
+             -- DROPPED TABLES\n\
+             -- ============================================\n\n",
+        );
+
+        for table_diff in dropped_tables {
+            script.push_str(&format!(
+                "-- WARNING: Dropping table will cause data loss!\n\
+                 DROP TABLE IF EXISTS {} CASCADE;\n\n",
+                table_diff.table_name
+            ));
+        }
+    }
+
+    // View changes
+    let view_changes: Vec<_> = comparison
+        .view_differences
+        .iter()
+        .filter(|v| !matches!(v.status, DiffStatus::Identical))
+        .collect();
+
+    if !view_changes.is_empty() {
+        has_changes = true;
+        script.push_str(
+            "-- ============================================\n\
+             -- VIEWS\n\
+             -- ============================================\n\n",
+        );
+
+        for view_change in view_changes {
+            match view_change.status {
+                DiffStatus::Added | DiffStatus::Modified => {
+                    script.push_str(&format!("DROP VIEW IF EXISTS {};\n\n", view_change.view_name));
+                    if let Some(def) = &view_change.target_definition {
+                        script.push_str(&format!("CREATE VIEW {} AS\n{};\n\n", view_change.view_name, def));
+                    }
+                }
+                DiffStatus::Removed => {
+                    script.push_str(&format!("DROP VIEW IF EXISTS {};\n\n", view_change.view_name));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Routine changes
+    let routine_changes: Vec<_> = comparison
+        .routine_differences
+        .iter()
+        .filter(|r| !matches!(r.status, DiffStatus::Identical))
+        .collect();
+
+    if !routine_changes.is_empty() {
+        has_changes = true;
+        script.push_str(
+            "-- ============================================\n\
+             -- FUNCTIONS/PROCEDURES\n\
+             -- ============================================\n\n",
+        );
+
+        for routine_change in routine_changes {
+            match routine_change.status {
+                DiffStatus::Added | DiffStatus::Modified => {
+                    script.push_str(&format!(
+                        "DROP FUNCTION IF EXISTS {} CASCADE;\n\n",
+                        routine_change.routine_name
+                    ));
+                    if let Some(routine_info) = &routine_change.target_definition {
+                        if let Some(def) = &routine_info.definition {
+                            script.push_str(&format!("{};\n\n", def));
+                        }
+                    }
+                }
+                DiffStatus::Removed => {
+                    script.push_str(&format!(
+                        "DROP FUNCTION IF EXISTS {} CASCADE;\n\n",
+                        routine_change.routine_name
+                    ));
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Footer
+    script.push_str("-- ============================================\n");
+    script.push_str("-- END OF MIGRATION SCRIPT\n");
+
+    if !has_changes {
+        script.push_str("-- No changes detected.\n");
+    } else {
+        let total_changes = comparison.summary.tables_added
+            + comparison.summary.tables_removed
+            + comparison.summary.tables_modified
+            + comparison.summary.views_changed
+            + comparison.summary.routines_changed;
+
+        script.push_str(&format!("-- Total affected objects: {}\n", total_changes));
+
+        if !comparison.warnings.is_empty() {
+            script.push_str(&format!("-- Warnings: {}\n", comparison.warnings.len()));
+        }
+    }
+
+    script.push_str("-- ============================================\n");
+
+    script
+}

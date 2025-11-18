@@ -9,7 +9,7 @@ pub use app_dir::{
 };
 
 pub use schema_diff::{
-    compare_schemas, ColumnChange, ComparisonSummary, ComparisonWarning, DiffStatus,
-    ForeignKeyChange, IndexChange, RoutineChange, SchemaComparison, TableDifference, ViewChange,
-    WarningSeverity,
+    compare_schemas, generate_migration_script, ColumnChange, ComparisonSummary,
+    ComparisonWarning, DiffStatus, ForeignKeyChange, IndexChange, RoutineChange,
+    SchemaComparison, TableDifference, ViewChange, WarningSeverity,
 };

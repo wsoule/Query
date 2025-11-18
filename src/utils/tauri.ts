@@ -45,6 +45,12 @@ export async function compareSchemas(
   });
 }
 
+export async function generateMigrationSql(
+  comparison: SchemaComparison
+): Promise<string> {
+  return await invoke<string>("generate_migration_sql", { comparison });
+}
+
 export async function executeQuery(
   config: ConnectionConfig,
   query: string

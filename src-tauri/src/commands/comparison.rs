@@ -24,6 +24,12 @@ pub async fn compare_schemas(
     Ok(comparison)
 }
 
+#[tauri::command]
+pub fn generate_migration_sql(comparison: SchemaComparison) -> Result<String, String> {
+    let migration_script = crate::utils::generate_migration_script(&comparison);
+    Ok(migration_script)
+}
+
 // Helper function to fetch enhanced schema
 async fn fetch_enhanced_schema(
     config: &ConnectionConfig,
