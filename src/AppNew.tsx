@@ -15,6 +15,13 @@ import { Button } from "./components/ui/button";
 import { Separator } from "./components/ui/separator";
 import { Badge } from "./components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select";
+import {
   Play,
   Save,
   Settings as SettingsIcon,
@@ -25,9 +32,12 @@ import {
   Command,
   Maximize,
   Minimize,
+  Plus,
+  Database,
 } from "lucide-react";
 import { SqlEditor } from "./components/editor/SqlEditor";
 import { ResultsTableEnhanced } from "./components/results/ResultsTableEnhanced";
+import { ErdDiagram } from "./components/erd/ErdDiagram";
 import { SaveQueryModal } from "./components/modals/SaveQueryModal";
 import { CommandPalette } from "./components/modals/CommandPalette";
 import { ProjectSettings } from "./components/modals/ProjectSettings";
@@ -57,6 +67,7 @@ export default function AppNew() {
   const [compactView, setCompactView] = useState(false);
   const [fullScreenResults, setFullScreenResults] = useState(false);
   const [readOnlyMode, setReadOnlyMode] = useState(false);
+  const [showErd, setShowErd] = useState(false);
   const [layoutDirection, setLayoutDirection] = useState<
     "vertical" | "horizontal"
   >("vertical");
@@ -585,16 +596,12 @@ export default function AppNew() {
           onSchemaChange={handleSchemaChange}
           history={history}
           savedQueries={savedQueries}
-          connections={connections}
-          currentConnection={config}
-          onConnectionChange={handleConnectionChange}
           onTableClick={handleTableClick}
           onColumnClick={handleColumnClick}
           onSelectQuery={setQuery}
           onDeleteQuery={handleDeleteSavedQuery}
           onTogglePin={handleTogglePin}
           onClearHistory={handleClearHistory}
-          onNewConnection={() => setShowConnectionModal(true)}
           onTableInsert={handleTableInsert}
           onTableUpdate={handleTableUpdate}
           onTableDelete={handleTableDelete}
@@ -602,46 +609,79 @@ export default function AppNew() {
 
         <SidebarInset className="flex flex-col">
           {/* Header */}
-          <header className="flex h-12 items-center gap-3 border-b px-4">
+          <header
+            data-tauri-drag-region
+            className="flex h-9 items-center gap-2 border-b px-3 pl-[72px]"
+          >
             {/* Left side */}
-            <SidebarTrigger />
-            <Separator orientation="vertical" className="h-6" />
+            <div data-tauri-drag-region="false">
+              <SidebarTrigger />
+            </div>
+            <Separator orientation="vertical" className="h-5" />
 
-            {/* Connection status */}
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className={`h-2 w-2 rounded-full p-0 ${
-                  connected ? "bg-green-500" : "bg-gray-500"
-                }`}
-              />
-              <span className="text-sm font-medium">
-                {config.name || "No connection"}
-              </span>
+            {/* Environment/Connection Dropdown */}
+            <div data-tauri-drag-region="false" className="min-w-[180px]">
+              <Select value={config.name} onValueChange={handleConnectionChange}>
+                <SelectTrigger className="h-7 border-none shadow-none text-sm font-medium hover:bg-accent">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant="outline"
+                      className={`h-2 w-2 rounded-full p-0 ${
+                        connected ? "bg-green-500" : "bg-gray-500"
+                      }`}
+                    />
+                    <SelectValue placeholder="No connection" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {connections.map((conn) => (
+                    <SelectItem key={conn.name} value={conn.name}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`h-2 w-2 rounded-full ${
+                            conn.name === config.name
+                              ? "bg-green-500"
+                              : "bg-gray-500"
+                          }`}
+                        />
+                        {conn.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__new__">
+                    <div className="flex items-center gap-2">
+                      <Plus className="h-3 w-3" />
+                      <span>New Connection</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <Separator orientation="vertical" className="h-6" />
+            <Separator orientation="vertical" className="h-5" />
 
             {/* Read-only mode toggle */}
-            <Button
-              variant={readOnlyMode ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setReadOnlyMode(!readOnlyMode)}
-              title={
-                readOnlyMode ? "Read-only mode active" : "Enable read-only mode"
-              }
-              className="h-8 gap-2"
-            >
-              {readOnlyMode ? (
-                <Lock className="h-3 w-3" />
-              ) : (
-                <Unlock className="h-3 w-3" />
-              )}
-              <span className="text-xs">Read-only</span>
-            </Button>
+            <div data-tauri-drag-region="false">
+              <Button
+                variant={readOnlyMode ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setReadOnlyMode(!readOnlyMode)}
+                title={
+                  readOnlyMode ? "Read-only mode active" : "Enable read-only mode"
+                }
+                className="h-7 gap-1.5"
+              >
+                {readOnlyMode ? (
+                  <Lock className="h-3 w-3" />
+                ) : (
+                  <Unlock className="h-3 w-3" />
+                )}
+                <span className="text-xs">Read-only</span>
+              </Button>
+            </div>
 
             {/* Right side */}
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1.5" data-tauri-drag-region="false">
               <Button
                 variant="ghost"
                 size="icon"
@@ -651,15 +691,24 @@ export default function AppNew() {
                   )
                 }
                 title={`Switch to ${layoutDirection === "vertical" ? "horizontal" : "vertical"} layout`}
-                className="h-8 w-8"
+                className="h-7 w-7"
               >
-                <LayoutGrid className="h-4 w-4" />
+                <LayoutGrid className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant={showErd ? "default" : "ghost"}
+                size="icon"
+                onClick={() => setShowErd(!showErd)}
+                title="Toggle ERD (Entity Relationship Diagram)"
+                className="h-7 w-7"
+              >
+                <Database className="h-3.5 w-3.5" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowCommandPalette(true)}
-                className="h-8 gap-1.5"
+                className="h-7 gap-1.5"
               >
                 <Command className="h-3 w-3" />
                 <span className="text-xs font-mono">K</span>
@@ -668,10 +717,10 @@ export default function AppNew() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setShowSettings(true)}
-                className="h-8 w-8"
+                className="h-7 w-7"
                 title="Settings (⌘,)"
               >
-                <SettingsIcon className="h-4 w-4" />
+                <SettingsIcon className="h-3.5 w-3.5" />
               </Button>
             </div>
           </header>
@@ -743,8 +792,8 @@ export default function AppNew() {
               <ResizablePanel defaultSize={fullScreenResults ? 100 : 50} minSize={30}>
                 <div className="flex h-full flex-col min-h-0">
                   <div className="flex items-center justify-between border-b px-4 py-2">
-                    <h3 className="text-sm font-medium">Results</h3>
-                    {result && (
+                    <h3 className="text-sm font-medium">{showErd ? "ERD" : "Results"}</h3>
+                    {result && !showErd && (
                       <div className="flex items-center gap-2">
                         <Button
                           variant={fullScreenResults ? "default" : "outline"}
@@ -787,14 +836,18 @@ export default function AppNew() {
                       </div>
                     )}
                   </div>
-                  <ResultsTableEnhanced
-                    result={result}
-                    compact={compactView}
-                    config={config}
-                    schema={schema}
-                    originalQuery={query}
-                    onRefresh={runQuery}
-                  />
+                  {showErd ? (
+                    <ErdDiagram schema={schema} />
+                  ) : (
+                    <ResultsTableEnhanced
+                      result={result}
+                      compact={compactView}
+                      config={config}
+                      schema={schema}
+                      originalQuery={query}
+                      onRefresh={runQuery}
+                    />
+                  )}
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>

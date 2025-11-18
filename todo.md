@@ -82,17 +82,17 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
   - [x] Error handling for non-git repositories
   - [x] Shell-based git commands (no additional dependencies)
   - [x] Backend Rust commands: check_git_repo, get_git_status, get_git_log, git_init, git_commit, git_push, git_pull
-
-### Priority Features
-- [ ] header in native macOS title bar (next to traffic lights)
-- [ ] improved editor styling (better integration with overall design)
-- [ ] make ui more compact 
+- [x] header in native macOS title bar (next to traffic lights)
+- [x] improved editor styling (better integration with overall design)
+- [x] make ui more compact 
   - (moving things into the same rows: results row, edit row on another line, selected meta data on another row, but this could all be moved into one row.)
   - 3 instances of same thing: # rows & time to execute query
+- [x] ERD (entity relationship diagram)
+
+### Priority Features
 - [ ] ability in top menu to open the current project directory
 
 ### Future Features
-- [ ] ERD (entity relationship diagram)
 - [ ] schema comparison (dev, staging, prod) - see detailed mockup below
 - [ ] robust table manipulation (create, alter, drop tables from UI)
 - [ ] variables system (maybe not needed?)

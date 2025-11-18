@@ -5,9 +5,18 @@ export interface ColumnInfo {
   is_primary_key: boolean;
 }
 
+export interface ForeignKeyInfo {
+  constraint_name: string;
+  table_name: string;
+  column_name: string;
+  foreign_table_name: string;
+  foreign_column_name: string;
+}
+
 export interface TableInfo {
   table_name: string;
   columns: ColumnInfo[];
+  foreign_keys: ForeignKeyInfo[];
 }
 
 export interface DatabaseSchema {

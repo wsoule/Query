@@ -3,7 +3,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -47,7 +46,6 @@ import type {
   DatabaseSchema,
   QueryHistoryEntry,
   SavedQuery,
-  ConnectionConfig,
   GitStatus,
 } from "../../types";
 import { getGitStatus, gitInit } from "../../utils/tauri";
@@ -60,16 +58,12 @@ interface AppSidebarProps {
   onSchemaChange: (schema: string) => void;
   history: QueryHistoryEntry[];
   savedQueries: SavedQuery[];
-  connections: ConnectionConfig[];
-  currentConnection: ConnectionConfig;
-  onConnectionChange: (name: string) => void;
   onTableClick: (tableName: string) => void;
   onColumnClick: (tableName: string, columnName: string) => void;
   onSelectQuery: (query: string) => void;
   onDeleteQuery: (id: number) => void;
   onTogglePin: (id: number) => void;
   onClearHistory: () => void;
-  onNewConnection: () => void;
   onTableInsert?: (tableName: string) => void;
   onTableUpdate?: (tableName: string) => void;
   onTableDelete?: (tableName: string) => void;
@@ -112,9 +106,6 @@ export const AppSidebar = memo(function AppSidebar({
   onSchemaChange,
   history,
   savedQueries,
-  connections,
-  currentConnection,
-  onConnectionChange,
   onTableClick,
   onColumnClick,
   onSelectQuery,
@@ -174,39 +165,6 @@ export const AppSidebar = memo(function AppSidebar({
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-b px-3 py-3">
-        <div className="space-y-1">
-          <div className="text-xs text-muted-foreground">Environment</div>
-          <Select value={currentConnection.name} onValueChange={onConnectionChange}>
-            <SelectTrigger className="w-full h-8">
-              <SelectValue placeholder="Select connection" />
-            </SelectTrigger>
-            <SelectContent>
-              {connections.map((conn) => (
-                <SelectItem key={conn.name} value={conn.name}>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-2 w-2 rounded-full ${
-                        conn.name === currentConnection.name
-                          ? "bg-green-500"
-                          : "bg-gray-500"
-                      }`}
-                    />
-                    {conn.name}
-                  </div>
-                </SelectItem>
-              ))}
-              <SelectItem value="__new__">
-                <div className="flex items-center gap-2">
-                  <Plus className="h-3 w-3" />
-                  <span>New Connection</span>
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </SidebarHeader>
-
       <SidebarContent>
         <ScrollArea className="h-[calc(100vh-240px)]">
           <SidebarGroup>
