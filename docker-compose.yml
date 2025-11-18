@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  postgres-dev:
+    image: postgres:16-alpine
+    container_name: query-postgres-dev
+    environment:
+      POSTGRES_USER: queryuser
+      POSTGRES_PASSWORD: querypass
+      POSTGRES_DB: querydb_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./db-init-dev:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U queryuser -d querydb_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  postgres-prod:
+    image: postgres:16-alpine
+    container_name: query-postgres-prod
+    environment:
+      POSTGRES_USER: queryuser
+      POSTGRES_PASSWORD: querypass
+      POSTGRES_DB: querydb_prod
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      - ./db-init-prod:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U queryuser -d querydb_prod"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_dev_data:
+  postgres_prod_data:
