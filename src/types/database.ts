@@ -80,3 +80,95 @@ export interface EnhancedDatabaseSchema {
   views: ViewInfo[];
   routines: RoutineInfo[];
 }
+
+// Schema comparison types
+
+export type DiffStatus = 'Identical' | 'Modified' | 'Added' | 'Removed';
+
+export type WarningSeverity = 'High' | 'Medium' | 'Low';
+
+export interface ColumnChange {
+  column_name: string;
+  status: DiffStatus;
+  source_definition?: EnhancedColumnInfo;
+  target_definition?: EnhancedColumnInfo;
+  changes: string[]; // e.g., ["type: VARCHAR(100) → VARCHAR(255)"]
+}
+
+export interface IndexChange {
+  index_name: string;
+  status: DiffStatus;
+  source_definition?: string;
+  target_definition?: string;
+}
+
+export interface ForeignKeyChange {
+  constraint_name: string;
+  status: DiffStatus;
+  source_definition?: ForeignKeyInfo;
+  target_definition?: ForeignKeyInfo;
+}
+
+export interface TableDifference {
+  table_name: string;
+  status: DiffStatus;
+  column_changes: ColumnChange[];
+  index_changes: IndexChange[];
+  foreign_key_changes: ForeignKeyChange[];
+}
+
+export interface ViewChange {
+  view_name: string;
+  status: DiffStatus;
+  source_definition?: string;
+  target_definition?: string;
+  definition_changed: boolean;
+}
+
+export interface RoutineChange {
+  routine_name: string;
+  status: DiffStatus;
+  source_definition?: string;
+  target_definition?: string;
+  definition_changed: boolean;
+}
+
+export interface ComparisonWarning {
+  severity: WarningSeverity;
+  message: string;
+  table_name?: string;
+  column_name?: string;
+}
+
+export interface ComparisonSummary {
+  total_tables_compared: number;
+  tables_added: number;
+  tables_removed: number;
+  tables_modified: number;
+  total_columns_compared: number;
+  columns_added: number;
+  columns_removed: number;
+  columns_modified: number;
+  total_indexes_compared: number;
+  indexes_added: number;
+  indexes_removed: number;
+  total_views_compared: number;
+  views_added: number;
+  views_removed: number;
+  views_modified: number;
+  total_routines_compared: number;
+  routines_added: number;
+  routines_removed: number;
+  routines_modified: number;
+  total_warnings: number;
+}
+
+export interface SchemaComparison {
+  source_connection: string;
+  target_connection: string;
+  summary: ComparisonSummary;
+  table_differences: TableDifference[];
+  view_differences: ViewChange[];
+  routine_differences: RoutineChange[];
+  warnings: ComparisonWarning[];
+}

@@ -9,6 +9,7 @@ import type {
   GitStatus,
   GitCommit,
   RecentProject,
+  SchemaComparison,
 } from "../types";
 
 // Connection Management
@@ -30,6 +31,18 @@ export async function getEnhancedDatabaseSchema(
   schema?: string
 ): Promise<EnhancedDatabaseSchema> {
   return await invoke<EnhancedDatabaseSchema>("get_enhanced_database_schema", { config, schema });
+}
+
+export async function compareSchemas(
+  sourceConfig: ConnectionConfig,
+  targetConfig: ConnectionConfig,
+  schema?: string
+): Promise<SchemaComparison> {
+  return await invoke<SchemaComparison>("compare_schemas", {
+    sourceConfig,
+    targetConfig,
+    schema
+  });
 }
 
 export async function executeQuery(

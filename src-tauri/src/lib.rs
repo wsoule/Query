@@ -60,6 +60,8 @@ pub fn run() {
             get_database_schema,
             get_database_schemas,
             get_enhanced_database_schema,
+            // Comparison commands
+            compare_schemas,
             // History commands
             save_query_to_history,
             get_query_history,

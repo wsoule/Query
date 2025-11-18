@@ -10,6 +10,19 @@ export type {
   EnhancedColumnInfo,
   EnhancedTableInfo,
   EnhancedDatabaseSchema,
+  ForeignKeyInfo,
+  // Schema comparison types
+  DiffStatus,
+  WarningSeverity,
+  ColumnChange,
+  IndexChange,
+  ForeignKeyChange,
+  TableDifference,
+  ViewChange,
+  RoutineChange,
+  ComparisonWarning,
+  ComparisonSummary,
+  SchemaComparison,
 } from './database';
 
 // Query types

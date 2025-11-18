@@ -105,6 +105,7 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
 - [ ] cancel query (abort long-running queries)
 - [ ] break out large files to separate files
 - [ ] general refactoring and cleanup
+- [ ] github action workflow for building and publishing
 
 ---
 
