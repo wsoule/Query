@@ -4,6 +4,12 @@ export type {
   TableInfo,
   DatabaseSchema,
   ConnectionConfig,
+  IndexInfo,
+  ViewInfo,
+  RoutineInfo,
+  EnhancedColumnInfo,
+  EnhancedTableInfo,
+  EnhancedDatabaseSchema,
 } from './database';
 
 // Query types

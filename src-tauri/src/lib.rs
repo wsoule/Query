@@ -36,9 +36,7 @@ pub fn run() {
                 .build()?;
 
             // Build complete menu
-            let menu = MenuBuilder::new(app)
-                .item(&file_submenu)
-                .build()?;
+            let menu = MenuBuilder::new(app).item(&file_submenu).build()?;
 
             app.set_menu(menu)?;
 
@@ -61,6 +59,7 @@ pub fn run() {
             execute_query,
             get_database_schema,
             get_database_schemas,
+            get_enhanced_database_schema,
             // History commands
             save_query_to_history,
             get_query_history,
