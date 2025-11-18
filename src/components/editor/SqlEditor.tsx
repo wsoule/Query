@@ -129,23 +129,29 @@ export const SqlEditor = memo(function SqlEditor({ value, onChange, onRunQuery, 
       };
 
       const insertSnippet = (snippet: string) => {
-        // Remove snippet placeholders (${1:text}) and keep just the text
-        const plainText = snippet.replace(/\$\{\d+:([^}]+)\}/g, '$1').replace(/\$\d+/g, '');
-        const position = editor.getPosition();
-        if (!position) return;
+        // Use Monaco's native snippet controller for proper tab stop support
+        const snippetController = editor.getContribution('snippetController2');
+        if (snippetController) {
+          snippetController.insert(snippet);
+        } else {
+          // Fallback: insert as plain text if snippet controller not available
+          const plainText = snippet.replace(/\$\{\d+:([^}]+)\}/g, '$1').replace(/\$\d+/g, '');
+          const position = editor.getPosition();
+          if (!position) return;
 
-        const range = new monaco.Range(
-          position.lineNumber,
-          position.column,
-          position.lineNumber,
-          position.column
-        );
+          const range = new monaco.Range(
+            position.lineNumber,
+            position.column,
+            position.lineNumber,
+            position.column
+          );
 
-        editor.executeEdits('', [{
-          range: range,
-          text: plainText,
-          forceMoveMarkers: true,
-        }]);
+          editor.executeEdits('', [{
+            range: range,
+            text: plainText,
+            forceMoveMarkers: true,
+          }]);
+        }
         editor.focus();
       };
 
@@ -211,6 +217,70 @@ export const SqlEditor = memo(function SqlEditor({ value, onChange, onRunQuery, 
           });
         });
 
+        // Add SQL snippets
+        const snippets = [
+          {
+            label: 'sel',
+            detail: 'SELECT with WHERE',
+            insertText: 'SELECT ${1:columns}\nFROM ${2:table}\nWHERE ${3:condition};',
+            documentation: 'SELECT statement with WHERE clause',
+          },
+          {
+            label: 'selj',
+            detail: 'SELECT with JOIN',
+            insertText: 'SELECT ${1:t1}.${2:column}, ${3:t2}.${4:column}\nFROM ${5:table1} ${1:t1}\nJOIN ${6:table2} ${3:t2} ON ${1:t1}.${7:id} = ${3:t2}.${8:fk_id}\nWHERE ${9:condition};',
+            documentation: 'SELECT with INNER JOIN',
+          },
+          {
+            label: 'sellj',
+            detail: 'SELECT with LEFT JOIN',
+            insertText: 'SELECT ${1:t1}.${2:column}, ${3:t2}.${4:column}\nFROM ${5:table1} ${1:t1}\nLEFT JOIN ${6:table2} ${3:t2} ON ${1:t1}.${7:id} = ${3:t2}.${8:fk_id}\nWHERE ${9:condition};',
+            documentation: 'SELECT with LEFT JOIN',
+          },
+          {
+            label: 'selagg',
+            detail: 'SELECT with GROUP BY',
+            insertText: 'SELECT ${1:column}, COUNT(*) as count\nFROM ${2:table}\nGROUP BY ${1:column}\nORDER BY count DESC;',
+            documentation: 'SELECT with aggregation and GROUP BY',
+          },
+          {
+            label: 'ins',
+            detail: 'INSERT INTO',
+            insertText: 'INSERT INTO ${1:table} (${2:column1}, ${3:column2})\nVALUES (${4:value1}, ${5:value2});',
+            documentation: 'INSERT statement',
+          },
+          {
+            label: 'upd',
+            detail: 'UPDATE',
+            insertText: 'UPDATE ${1:table}\nSET ${2:column1} = ${3:value1}\nWHERE ${4:condition};',
+            documentation: 'UPDATE statement',
+          },
+          {
+            label: 'del',
+            detail: 'DELETE FROM',
+            insertText: 'DELETE FROM ${1:table}\nWHERE ${2:condition};',
+            documentation: 'DELETE statement',
+          },
+          {
+            label: 'cte',
+            detail: 'WITH (Common Table Expression)',
+            insertText: 'WITH ${1:cte_name} AS (\n  ${2:SELECT * FROM table}\n)\nSELECT * FROM ${1:cte_name};',
+            documentation: 'Common Table Expression (CTE)',
+          },
+        ];
+
+        snippets.forEach(snippet => {
+          suggestions.push({
+            label: snippet.label,
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            detail: snippet.detail,
+            documentation: snippet.documentation,
+            insertText: snippet.insertText,
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            range: range,
+          });
+        });
+
         // Add table names from schema (use ref to get latest schema value)
         const currentSchema = schemaRef.current;
         if (currentSchema?.tables) {
@@ -272,6 +342,11 @@ export const SqlEditor = memo(function SqlEditor({ value, onChange, onRunQuery, 
           wordWrap: 'on',
           quickSuggestions: true,
           suggestOnTriggerCharacters: true,
+          tabCompletion: 'on',
+          snippetSuggestions: 'top',
+          suggest: {
+            snippetsPreventQuickSuggestions: false,
+          },
           padding: { top: 12, bottom: 12 },
           fontFamily: 'JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Monaco, monospace',
           fontLigatures: true,

@@ -69,7 +69,12 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
 
 ### Priority Features
 - [ ] better git integration (commit, push, pull in app) - **currently placeholder in sidebar footer**
-- [ ] snippet-style tabbing for query templates (e.g., UPDATE users SET $1 WHERE $2)
+- [x] snippet-style tabbing for query templates
+  - [x] Fixed insertSnippet to use Monaco's native snippet controller
+  - [x] Tab navigation between placeholders (${1:text}, ${2:text}, etc.)
+  - [x] Added 8 SQL snippet templates in autocomplete (sel, selj, sellj, selagg, ins, upd, del, cte)
+  - [x] Snippets work with existing INSERT/UPDATE/DELETE from sidebar
+  - [x] Configured editor for optimal snippet support
 
 ### Future Features
 - [ ] ERD (entity relationship diagram)
