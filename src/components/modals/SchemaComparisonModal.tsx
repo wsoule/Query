@@ -18,7 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Badge } from "../ui/badge";
 import type { ConnectionConfig, SchemaComparison } from "../../types";
-import { compareSchemas, generateMigrationSql } from "../../utils/tauri";
+import { compareSchemas, generateMigrationSql, getConnectionPassword } from "../../utils/tauri";
 import { Loader2, AlertTriangle, CheckCircle2, XCircle, MinusCircle } from "lucide-react";
 
 interface SchemaComparisonModalProps {
@@ -59,7 +59,21 @@ export const SchemaComparisonModal = memo(function SchemaComparisonModal({
     setMigrationScript("");
 
     try {
-      const result = await compareSchemas(sourceConfig, targetConfig);
+      // Fetch passwords from keychain for both connections
+      const sourcePassword = await getConnectionPassword(sourceConfig.name);
+      const targetPassword = await getConnectionPassword(targetConfig.name);
+
+      // Create connection configs with passwords
+      const sourceConfigWithPassword = {
+        ...sourceConfig,
+        password: sourcePassword || "",
+      };
+      const targetConfigWithPassword = {
+        ...targetConfig,
+        password: targetPassword || "",
+      };
+
+      const result = await compareSchemas(sourceConfigWithPassword, targetConfigWithPassword);
       setComparison(result);
 
       // Generate migration script
