@@ -83,9 +83,9 @@ export interface EnhancedDatabaseSchema {
 
 // Schema comparison types
 
-export type DiffStatus = 'Identical' | 'Modified' | 'Added' | 'Removed';
+export type DiffStatus = 'identical' | 'modified' | 'added' | 'removed';
 
-export type WarningSeverity = 'High' | 'Medium' | 'Low';
+export type WarningSeverity = 'high' | 'medium' | 'low';
 
 export interface ColumnChange {
   column_name: string;
@@ -114,7 +114,7 @@ export interface TableDifference {
   status: DiffStatus;
   column_changes: ColumnChange[];
   index_changes: IndexChange[];
-  foreign_key_changes: ForeignKeyChange[];
+  fk_changes: ForeignKeyChange[];
 }
 
 export interface ViewChange {

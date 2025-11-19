@@ -328,9 +328,9 @@ export const SchemaComparisonModal = memo(function SchemaComparisonModal({
                     >
                       <div className="flex items-start gap-3">
                         <AlertTriangle className={`w-5 h-5 mt-0.5 ${
-                          warning.severity === "High"
+                          warning.severity === "high"
                             ? "text-red-500"
-                            : warning.severity === "Medium"
+                            : warning.severity === "medium"
                             ? "text-yellow-500"
                             : "text-blue-500"
                         }`} />

@@ -52,7 +52,7 @@ import { CommandPalette } from "./components/modals/CommandPalette";
 import { ProjectSettings } from "./components/modals/ProjectSettings";
 import { ConnectionModal } from "./components/modals/ConnectionModal";
 import { Settings } from "./components/modals/Settings";
-import { SchemaComparisonModal } from "./components/modals/SchemaComparisonModal";
+import { SchemaComparisonPage } from "./components/comparison/SchemaComparisonPage";
 import type {
   DatabaseSchema,
   ConnectionConfig,
@@ -659,6 +659,16 @@ export default function AppNew() {
     URL.revokeObjectURL(link.href);
   }, [result]);
 
+  // Render full-page schema comparison if active
+  if (showSchemaComparison) {
+    return (
+      <SchemaComparisonPage
+        connections={connections}
+        onClose={() => setShowSchemaComparison(false)}
+      />
+    );
+  }
+
   return (
     <SidebarProvider>
       <div className="flex h-screen w-full">
@@ -1043,11 +1053,6 @@ export default function AppNew() {
         initialConnection={editingConnection}
       />
 
-      <SchemaComparisonModal
-        isOpen={showSchemaComparison}
-        onClose={() => setShowSchemaComparison(false)}
-        connections={connections}
-      />
     </SidebarProvider>
   );
 }
