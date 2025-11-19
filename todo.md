@@ -92,6 +92,9 @@ A modern, fast PostgreSQL client built with Tauri 2.0, React 19, and TypeScript.
 - [x] show recent projects in project selector dropdown (a project is a directory)
 
 ### Priority Features
+- [ ] os keychain not working for passwords
+  - when i save the connection, the password is not saved
+  - when i load the connection, the password is not loaded
 
 ### Future Features
 - [ ] schema comparison (dev, staging, prod) - see detailed mockup below

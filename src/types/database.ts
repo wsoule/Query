@@ -135,32 +135,19 @@ export interface RoutineChange {
 
 export interface ComparisonWarning {
   severity: WarningSeverity;
+  warning_type: string; // 'data_loss', 'locking', 'breaking_change', 'info'
   message: string;
-  table_name?: string;
-  column_name?: string;
+  affected_object: string;
+  details?: string;
 }
 
 export interface ComparisonSummary {
-  total_tables_compared: number;
+  tables_modified: number;
   tables_added: number;
   tables_removed: number;
-  tables_modified: number;
-  total_columns_compared: number;
-  columns_added: number;
-  columns_removed: number;
-  columns_modified: number;
-  total_indexes_compared: number;
-  indexes_added: number;
-  indexes_removed: number;
-  total_views_compared: number;
-  views_added: number;
-  views_removed: number;
-  views_modified: number;
-  total_routines_compared: number;
-  routines_added: number;
-  routines_removed: number;
-  routines_modified: number;
-  total_warnings: number;
+  indexes_missing: number;
+  views_changed: number;
+  routines_changed: number;
 }
 
 export interface SchemaComparison {

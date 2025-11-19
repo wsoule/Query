@@ -42,6 +42,7 @@ import {
   Plus,
   Database,
   Folder,
+  GitCompareArrows,
 } from "lucide-react";
 import { SqlEditor } from "./components/editor/SqlEditor";
 import { ResultsTableEnhanced } from "./components/results/ResultsTableEnhanced";
@@ -51,6 +52,7 @@ import { CommandPalette } from "./components/modals/CommandPalette";
 import { ProjectSettings } from "./components/modals/ProjectSettings";
 import { ConnectionModal } from "./components/modals/ConnectionModal";
 import { Settings } from "./components/modals/Settings";
+import { SchemaComparisonModal } from "./components/modals/SchemaComparisonModal";
 import type {
   DatabaseSchema,
   ConnectionConfig,
@@ -72,6 +74,7 @@ export default function AppNew() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSchemaComparison, setShowSchemaComparison] = useState(false);
   const [vimMode, setVimMode] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const [fullScreenResults, setFullScreenResults] = useState(false);
@@ -839,6 +842,15 @@ export default function AppNew() {
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={() => setShowSchemaComparison(true)}
+                className="h-7 w-7"
+                title="Compare Schemas"
+              >
+                <GitCompareArrows className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowSettings(true)}
                 className="h-7 w-7"
                 title="Settings (⌘,)"
@@ -1029,6 +1041,12 @@ export default function AppNew() {
         }}
         onSave={handleSaveConnection}
         initialConnection={editingConnection}
+      />
+
+      <SchemaComparisonModal
+        isOpen={showSchemaComparison}
+        onClose={() => setShowSchemaComparison(false)}
+        connections={connections}
       />
     </SidebarProvider>
   );
