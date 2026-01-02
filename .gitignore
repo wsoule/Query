@@ -7,10 +7,23 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+
+# Build outputs
 dist
 dist-ssr
 *.local
+
+# Vite cache
+.vite
+
+# Tauri
+src-tauri/target
+src-tauri/gen
+
+# Local configuration (user-specific)
+.mcp.json
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +35,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS
+Thumbs.db
+
+# ESLint cache
+.eslintcache

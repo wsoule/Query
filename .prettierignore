@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+dist/
+build/
+
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Git
+.git/
+
+# Config files
+package-lock.json
+bun.lock
+yarn.lock
+pnpm-lock.yaml
+
+# Generated files
+*.min.js
+*.min.css
