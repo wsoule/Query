@@ -5,7 +5,7 @@ This repo cuts signed + notarized macOS builds and publishes them through a Home
 ## TL;DR
 
 ```bash
-# 1. Bump version in src-tauri/tauri.conf.json and src-tauri/Cargo.toml
+# 1. Bump version in package.json, src-tauri/tauri.conf.json, and src-tauri/Cargo.toml
 # 2. Commit + tag
 git commit -am "release v0.2.0"
 git tag v0.2.0
@@ -19,10 +19,11 @@ brew install --cask wsoule/tap/query
 For every `v*` tag push:
 
 1. **Creates a draft GitHub release** named "Query v{version}".
-2. **Builds for macOS** on both arches (`aarch64-apple-darwin` on `macos-latest`, `x86_64-apple-darwin` on `macos-13`). The build is **signed** with a Developer ID Application certificate and **notarized** through `tauri-action`'s built-in `xcrun notarytool` call.
-3. **Builds for Windows + Linux** (unsigned).
-4. **Publishes the release** (un-drafts it).
-5. **Updates `wsoule/homebrew-tap`**:
+2. **Verifies the tag version matches** `package.json`, `src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml`.
+3. **Builds for macOS** on both arches (`aarch64-apple-darwin` on `macos-latest`, `x86_64-apple-darwin` on `macos-13`). The build is **signed** with a Developer ID Application certificate and **notarized** through `tauri-action`'s built-in `xcrun notarytool` call.
+4. **Builds for Windows + Linux** (unsigned).
+5. **Publishes the release** (un-drafts it).
+6. **Updates `wsoule/homebrew-tap` for stable releases only**:
    - Downloads the two signed DMGs from the just-published release.
    - Verifies Gatekeeper acceptance via `spctl --assess`.
    - Computes SHA256 sums.
@@ -31,18 +32,18 @@ For every `v*` tag push:
 
 ## GitHub secrets required
 
-| Secret | What it is |
-| --- | --- |
-| `APPLE_CERTIFICATE` | Base64-encoded `.p12` of your "Developer ID Application" cert. Export from Keychain Access → right-click cert → Export → set a password. Then `base64 < cert.p12 \| pbcopy`. |
-| `APPLE_CERTIFICATE_PASSWORD` | The password you set when exporting the `.p12`. |
-| `KEYCHAIN_PASSWORD` | Any string — used to lock the temporary build keychain. Just pick a random value. |
-| `APPLE_SIGNING_IDENTITY` | The exact identity string, e.g. `Developer ID Application: Your Name (TEAM123ABC)`. Find via `security find-identity -v -p codesigning`. |
-| `APPLE_ID` | Your Apple ID email. |
-| `APPLE_PASSWORD` | An **app-specific password** for `notarytool` ([generate here](https://appleid.apple.com/account/manage)). Not your regular Apple ID password. |
-| `APPLE_TEAM_ID` | Your 10-character Apple Developer Team ID. |
-| `TAURI_SIGNING_PRIVATE_KEY` | Tauri updater signing key (optional — only needed for in-app updates). Generate with `bun tauri signer generate -w`. |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Passphrase for the updater key. |
-| `HOMEBREW_TAP_TOKEN` | A PAT with `repo` write scope to `wsoule/homebrew-tap`. Fine-grained PAT scoped to that one repo is preferred. |
+| Secret                               | What it is                                                                                                                                                                   |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APPLE_CERTIFICATE`                  | Base64-encoded `.p12` of your "Developer ID Application" cert. Export from Keychain Access → right-click cert → Export → set a password. Then `base64 < cert.p12 \| pbcopy`. |
+| `APPLE_CERTIFICATE_PASSWORD`         | The password you set when exporting the `.p12`.                                                                                                                              |
+| `KEYCHAIN_PASSWORD`                  | Any string — used to lock the temporary build keychain. Just pick a random value.                                                                                            |
+| `APPLE_SIGNING_IDENTITY`             | The exact identity string, e.g. `Developer ID Application: Your Name (TEAM123ABC)`. Find via `security find-identity -v -p codesigning`.                                     |
+| `APPLE_ID`                           | Your Apple ID email.                                                                                                                                                         |
+| `APPLE_PASSWORD`                     | An **app-specific password** for `notarytool` ([generate here](https://appleid.apple.com/account/manage)). Not your regular Apple ID password.                               |
+| `APPLE_TEAM_ID`                      | Your 10-character Apple Developer Team ID.                                                                                                                                   |
+| `TAURI_SIGNING_PRIVATE_KEY`          | Tauri updater signing key (optional — only needed for in-app updates). Generate with `bun tauri signer generate -w`.                                                         |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Passphrase for the updater key.                                                                                                                                              |
+| `HOMEBREW_TAP_TOKEN`                 | A PAT with `repo` write scope to `wsoule/homebrew-tap`. Fine-grained PAT scoped to that one repo is preferred.                                                               |
 
 Set them under **Settings → Secrets and variables → Actions** on the GitHub repo.
 
@@ -57,6 +58,16 @@ bun run tauri build
 ```
 
 The local `tauri.conf.json` hardcodes a `signingIdentity` SHA. CI overrides it via the `APPLE_SIGNING_IDENTITY` env var, so the two paths don't conflict.
+
+## Website downloads
+
+The static site in `site/` fetches GitHub Releases at runtime and maps buttons to the latest published artifacts for macOS, Windows, and Linux. The `Site` GitHub Actions workflow builds and deploys the site to GitHub Pages.
+
+In GitHub, set **Settings -> Pages -> Build and deployment -> Source** to **GitHub Actions**. The custom domain is committed as `site/CNAME`.
+
+## Prereleases
+
+Versions with a hyphen, such as `0.2.0-beta.1`, are published as GitHub prereleases and skip the Homebrew tap update. Stable versions, such as `0.2.0`, update Homebrew.
 
 ## Verifying a release locally
 

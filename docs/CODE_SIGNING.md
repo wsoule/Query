@@ -59,15 +59,15 @@ security find-identity -v -p codesigning
 
 Go to your repository **Settings > Secrets and variables > Actions** and add:
 
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `APPLE_CERTIFICATE` | Base64-encoded .p12 certificate | (contents of certificate.txt) |
-| `APPLE_CERTIFICATE_PASSWORD` | Password for the .p12 file | your-p12-password |
-| `APPLE_SIGNING_IDENTITY` | Full certificate name | Developer ID Application: Your Name (ABC1234567) |
-| `APPLE_ID` | Your Apple ID email | you@example.com |
-| `APPLE_PASSWORD` | App-specific password | xxxx-xxxx-xxxx-xxxx |
-| `APPLE_TEAM_ID` | Your 10-character Team ID | ABC1234567 |
-| `KEYCHAIN_PASSWORD` | Any random password for CI keychain | random-secure-password |
+| Secret                       | Description                         | Example                                          |
+| ---------------------------- | ----------------------------------- | ------------------------------------------------ |
+| `APPLE_CERTIFICATE`          | Base64-encoded .p12 certificate     | (contents of certificate.txt)                    |
+| `APPLE_CERTIFICATE_PASSWORD` | Password for the .p12 file          | your-p12-password                                |
+| `APPLE_SIGNING_IDENTITY`     | Full certificate name               | Developer ID Application: Your Name (ABC1234567) |
+| `APPLE_ID`                   | Your Apple ID email                 | you@example.com                                  |
+| `APPLE_PASSWORD`             | App-specific password               | xxxx-xxxx-xxxx-xxxx                              |
+| `APPLE_TEAM_ID`              | Your 10-character Team ID           | ABC1234567                                       |
+| `KEYCHAIN_PASSWORD`          | Any random password for CI keychain | random-secure-password                           |
 
 ## Tauri Updater Keys (Optional)
 
@@ -84,6 +84,7 @@ Add to GitHub secrets:
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Password you set when generating |
 
 Add public key to `tauri.conf.json`:
+
 ```json
 {
   "plugins": {
@@ -93,6 +94,18 @@ Add public key to `tauri.conf.json`:
   }
 }
 ```
+
+## Windows Code Signing (Recommended)
+
+The release workflow builds Windows installers, but it does not currently sign them. Unsigned Windows builds are still downloadable, but many users will see Microsoft Defender SmartScreen warnings until the app builds reputation.
+
+To reduce those warnings, add Windows signing before the `build-windows` Tauri step:
+
+1. Buy an OV or EV code signing certificate, or configure a cloud signing service such as Azure Trusted Signing.
+2. Store the certificate or signing credentials as GitHub Actions secrets.
+3. Import the certificate in the Windows job and set Tauri's Windows signing config, or run `signtool sign` against the generated `.exe`/`.msi` artifacts before publishing them.
+
+EV certificates generally build SmartScreen reputation faster, but they usually require hardware-token or cloud-backed signing. OV certificates are easier to automate, but reputation still accumulates over time.
 
 ## Testing Locally
 
@@ -131,10 +144,13 @@ xcrun notarytool submit src-tauri/target/release/bundle/dmg/Query_0.1.0_aarch64.
 ## Troubleshooting
 
 ### "Query is damaged and can't be opened"
+
 Your app isn't signed or notarized. Check the GitHub Actions logs for signing errors.
 
 ### "Developer cannot be verified"
+
 The app is signed but not notarized. Ensure `APPLE_ID`, `APPLE_PASSWORD`, and `APPLE_TEAM_ID` secrets are set correctly.
 
 ### Code signing fails in CI
+
 Make sure your certificate hasn't expired and all secrets are correctly formatted (no extra newlines).

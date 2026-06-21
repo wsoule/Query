@@ -3,8 +3,13 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, with or without the v prefix"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -20,31 +25,73 @@ jobs:
       release_id: ${{ steps.create-release.outputs.id }}
       release_upload_url: ${{ steps.create-release.outputs.upload_url }}
       version: ${{ steps.get_version.outputs.VERSION }}
+      release_tag: ${{ steps.get_version.outputs.RELEASE_TAG }}
+      is_prerelease: ${{ steps.get_version.outputs.IS_PRERELEASE }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Validate and extract version
         id: get_version
         env:
+          EVENT_NAME: ${{ github.event_name }}
           REF_NAME: ${{ github.ref_name }}
+          DISPATCH_VERSION: ${{ github.event.inputs.version }}
         run: |
           # Strip "v" prefix; require strict semver-ish form to prevent
           # injection via crafted tag names being embedded downstream.
-          VERSION="${REF_NAME#v}"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            VERSION="${DISPATCH_VERSION#v}"
+            SOURCE="manual version input '$DISPATCH_VERSION'"
+          else
+            VERSION="${REF_NAME#v}"
+            SOURCE="tag '$REF_NAME'"
+          fi
+
           if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-            echo "::error::Tag '$REF_NAME' is not a valid semver. Expected vMAJOR.MINOR.PATCH(-prerelease)."
+            echo "::error::$SOURCE is not a valid semver. Expected vMAJOR.MINOR.PATCH(-prerelease)."
             exit 1
           fi
+
+          PACKAGE_VERSION=$(grep -m1 '"version":' package.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+          TAURI_VERSION=$(grep -m1 '"version":' src-tauri/tauri.conf.json | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+          CARGO_VERSION=$(awk '
+            /^\[package\]/ { in_package = 1; next }
+            /^\[/ && in_package { in_package = 0 }
+            in_package && /^version = / {
+              gsub(/"/, "", $3)
+              print $3
+              exit
+            }
+          ' src-tauri/Cargo.toml)
+
+          if [ "$PACKAGE_VERSION" != "$VERSION" ] || [ "$TAURI_VERSION" != "$VERSION" ] || [ "$CARGO_VERSION" != "$VERSION" ]; then
+            echo "::error::Release version mismatch."
+            echo "::error::Requested: $VERSION"
+            echo "::error::package.json: $PACKAGE_VERSION"
+            echo "::error::src-tauri/tauri.conf.json: $TAURI_VERSION"
+            echo "::error::src-tauri/Cargo.toml: $CARGO_VERSION"
+            exit 1
+          fi
+
+          if printf '%s' "$VERSION" | grep -q -- '-'; then
+            IS_PRERELEASE=true
+          else
+            IS_PRERELEASE=false
+          fi
+
           echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_TAG=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "IS_PRERELEASE=$IS_PRERELEASE" >> "$GITHUB_OUTPUT"
 
       - name: Create draft release
         id: create-release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ steps.get_version.outputs.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
           name: Query v${{ steps.get_version.outputs.VERSION }}
           draft: true
-          prerelease: false
+          prerelease: ${{ steps.get_version.outputs.IS_PRERELEASE }}
           generate_release_notes: true
 
   build-macos:
@@ -74,21 +121,33 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
       - name: Install frontend dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Import Apple Developer Certificate
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          if [ -z "$APPLE_CERTIFICATE" ]; then
-            echo "::error::APPLE_CERTIFICATE secret is not set — signing will fail."
+          missing=0
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID KEYCHAIN_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name secret is not set."
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
             exit 1
           fi
+
           echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
@@ -130,10 +189,10 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
       - name: Install frontend dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -159,7 +218,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: "./src-tauri -> target"
 
       - name: Install Linux dependencies
         run: |
@@ -167,7 +226,7 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Install frontend dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -189,16 +248,18 @@ jobs:
 
   update-homebrew-tap:
     needs: [create-release, publish-release]
+    if: ${{ needs.create-release.outputs.is_prerelease != 'true' }}
     runs-on: macos-latest
     env:
       VERSION: ${{ needs.create-release.outputs.version }}
+      RELEASE_TAG: ${{ needs.create-release.outputs.release_tag }}
       REPO: ${{ github.repository }}
     steps:
       - name: Download signed macOS DMGs from release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release download "v$VERSION" \
+          gh release download "$RELEASE_TAG" \
             --repo "$REPO" \
             --pattern "Query_*_aarch64.dmg" \
             --pattern "Query_*_x64.dmg"

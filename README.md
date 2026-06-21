@@ -25,8 +25,10 @@ Before running Query, ensure you have the following installed:
 ### Platform-Specific Requirements
 
 **macOS:**
+
 - Xcode Command Line Tools: `xcode-select --install`
 - Install dependencies via Homebrew:
+
   ```bash
   # Install Bun (recommended) or Node.js
   brew install bun
@@ -38,7 +40,9 @@ Before running Query, ensure you have the following installed:
   ```
 
 **Linux:**
+
 - Development libraries:
+
   ```bash
   # Debian/Ubuntu
   sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
@@ -48,18 +52,35 @@ Before running Query, ensure you have the following installed:
   ```
 
 **Windows:**
+
 - Microsoft Visual Studio C++ Build Tools
 - WebView2 (usually pre-installed on Windows 10/11)
 
 ## Installation
 
+### Prebuilt downloads
+
+Download the latest installer from [GitHub Releases](https://github.com/wsoule/Query/releases).
+
+On macOS, you can also install with Homebrew:
+
+```bash
+brew install --cask wsoule/tap/query
+```
+
+Release builds include macOS Apple Silicon, macOS Intel, Windows, and Linux artifacts. macOS releases are signed and notarized.
+
+### Build from source
+
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/wsoule/Query
    cd Query
    ```
 
 2. **Install dependencies:**
+
    ```bash
    # Using Bun (recommended)
    bun install
@@ -90,6 +111,7 @@ npm run tauri dev
 ```
 
 This will:
+
 - Start the Vite dev server on port 1420
 - Launch the Tauri desktop app
 - Enable hot reload for both React and Rust code
@@ -119,6 +141,7 @@ bun run tauri build
 The built application will be in `src-tauri/target/release/bundle/`
 
 ### Build artifacts by platform:
+
 - **macOS:** `.dmg` and `.app` in `bundle/dmg/` and `bundle/macos/`
 - **Linux:** `.AppImage` and `.deb` in `bundle/appimage/` and `bundle/deb/`
 - **Windows:** `.msi` and `.exe` in `bundle/msi/` and `bundle/nsis/`
@@ -126,6 +149,7 @@ The built application will be in `src-tauri/target/release/bundle/`
 ## Tech Stack
 
 ### Frontend
+
 - **React 19.1** - UI framework
 - **TypeScript 5.8** - Type safety
 - **Vite 7** - Build tool and dev server
@@ -136,12 +160,14 @@ The built application will be in `src-tauri/target/release/bundle/`
 - **Shadcn UI** - React UI components
 
 ### Backend
+
 - **Tauri 2.0** - Desktop app framework
 - **Rust** - Native backend (async with Tokio)
 - **SQLx 0.8.6** - SQL database driver (PostgreSQL, SQLite, MySQL)
 - **keyring** - OS keychain integration for secure password storage
 
 ### Databases
+
 - **PostgreSQL** - Fully supported remote database
 - **SQLite** - Local storage (query history, saved queries)
 - **MySQL** - Partial support (dependencies ready, commands in progress)
@@ -186,17 +212,20 @@ Default project path is `~/.query/`, but can be changed via Project Settings.
 ## Development
 
 ### TypeScript Compilation Check
+
 ```bash
 bun run build
 ```
 
 ### Rust Compilation Check
+
 ```bash
 cd src-tauri
 cargo build
 ```
 
 ### Running Tests
+
 ```bash
 # Rust tests
 cd src-tauri

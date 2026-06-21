@@ -9,10 +9,7 @@
     />
     <link rel="canonical" href="https://querydb.dev/" />
     <meta property="og:title" content="Query - Desktop SQL Client" />
-    <meta
-      property="og:description"
-      content="Keyboard-driven SQL. Fast by default."
-    />
+    <meta property="og:description" content="Keyboard-driven SQL. Fast by default." />
     <meta property="og:url" content="https://querydb.dev/" />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="https://querydb.dev/assets/pgadmin.png" />
@@ -73,17 +70,16 @@
           <div class="hero-actions" aria-label="Install actions">
             <a
               class="button primary"
-              href="https://github.com/wsoule/Query/releases/download/v0.1.0-local.1/Query_0.1.0_x64.dmg"
+              href="https://github.com/wsoule/Query/releases"
+              data-primary-download
             >
-              Download macOS x64
+              Download Query
             </a>
             <a class="button secondary" href="#install">Install options</a>
           </div>
           <div class="hero-command">
             <code>brew install --cask wsoule/tap/query</code>
-            <button type="button" data-copy="brew install --cask wsoule/tap/query">
-              Copy
-            </button>
+            <button type="button" data-copy="brew install --cask wsoule/tap/query">Copy</button>
           </div>
         </div>
       </section>
@@ -92,25 +88,73 @@
         <div class="section-heading">
           <p class="eyebrow">Download</p>
           <h2>Install</h2>
+          <p class="release-status" data-release-status>Fetching the latest release.</p>
         </div>
         <div class="install-grid">
           <article class="script-block download-card">
-            <h3>macOS x64</h3>
-            <p>Signed and notarized.</p>
+            <h3>macOS Apple Silicon</h3>
+            <p>For M1, M2, M3, and newer Macs. Signed and notarized.</p>
             <a
               class="button primary"
-              href="https://github.com/wsoule/Query/releases/download/v0.1.0-local.1/Query_0.1.0_x64.dmg"
+              href="https://github.com/wsoule/Query/releases"
+              data-download="macos-arm"
             >
-              Download DMG
+              View releases
+            </a>
+          </article>
+
+          <article class="script-block download-card">
+            <h3>macOS Intel</h3>
+            <p>For older Intel Macs. Signed and notarized.</p>
+            <a
+              class="button primary"
+              href="https://github.com/wsoule/Query/releases"
+              data-download="macos-intel"
+            >
+              View releases
+            </a>
+          </article>
+
+          <article class="script-block download-card">
+            <h3>Windows</h3>
+            <p>Installer for Windows 10 and 11.</p>
+            <a
+              class="button primary"
+              href="https://github.com/wsoule/Query/releases"
+              data-download="windows"
+            >
+              View releases
+            </a>
+          </article>
+
+          <article class="script-block download-card">
+            <h3>Linux AppImage</h3>
+            <p>Portable build for most desktop Linux distributions.</p>
+            <a
+              class="button primary"
+              href="https://github.com/wsoule/Query/releases"
+              data-download="linux-appimage"
+            >
+              View releases
+            </a>
+          </article>
+
+          <article class="script-block download-card">
+            <h3>Linux .deb</h3>
+            <p>Package for Debian, Ubuntu, and compatible distributions.</p>
+            <a
+              class="button primary"
+              href="https://github.com/wsoule/Query/releases"
+              data-download="linux-deb"
+            >
+              View releases
             </a>
           </article>
 
           <article class="script-block">
             <h3>One line</h3>
             <pre><code>brew install --cask wsoule/tap/query</code></pre>
-            <button type="button" data-copy="brew install --cask wsoule/tap/query">
-              Copy
-            </button>
+            <button type="button" data-copy="brew install --cask wsoule/tap/query">Copy</button>
           </article>
 
           <article class="script-block">
@@ -168,7 +212,7 @@ brew upgrade --cask query</code></pre>
     </main>
 
     <footer>
-      <span>Query 0.1.0</span>
+      <span data-release-version>Query 0.1.0</span>
       <a href="/LOG.md">Log</a>
       <a href="https://github.com/wsoule/Query">GitHub</a>
     </footer>
