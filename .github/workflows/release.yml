@@ -270,7 +270,7 @@ jobs:
           for dmg in *.dmg; do
             echo "=== $dmg ==="
             mountpoint=$(mktemp -d)
-            hdiutil attach "$dmg" -mountpoint "$mountpoint" -nobrowse -quiet
+            printf 'Y\n' | hdiutil attach "$dmg" -mountpoint "$mountpoint" -nobrowse
             trap 'hdiutil detach "$mountpoint" -quiet || true; rmdir "$mountpoint" || true' EXIT
 
             spctl --assess --type execute -vv "$mountpoint/Query.app" || {
