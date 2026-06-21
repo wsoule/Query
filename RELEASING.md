@@ -61,9 +61,17 @@ The local `tauri.conf.json` hardcodes a `signingIdentity` SHA. CI overrides it v
 
 ## Website downloads
 
-The static site in `site/` fetches GitHub Releases at runtime and maps buttons to the latest published artifacts for macOS, Windows, and Linux. The `Site` GitHub Actions workflow builds and deploys the site to GitHub Pages.
+The static site in `site/` fetches GitHub Releases at runtime and maps buttons to the latest published artifacts for macOS, Windows, and Linux.
 
-In GitHub, set **Settings -> Pages -> Build and deployment -> Source** to **GitHub Actions**. The custom domain is committed as `site/CNAME`.
+Production is deployed by Railway from the `Query` service connected to this repo. The live domain is `https://querydb.dev`.
+
+The `Site` GitHub Actions workflow only runs a static-site build check. Do not enable GitHub Pages for this repo.
+
+Local check:
+
+```bash
+bun run site:build
+```
 
 ## Prereleases
 

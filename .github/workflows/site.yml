@@ -14,11 +14,9 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
-  group: github-pages
+  group: site-build
   cancel-in-progress: false
 
 jobs:
@@ -37,27 +35,3 @@ jobs:
 
       - name: Build site
         run: bun run site:build
-
-      - name: Copy Pages metadata
-        run: |
-          cp site/CNAME site/dist/CNAME
-          cp site/LOG.md site/dist/LOG.md
-
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v4
