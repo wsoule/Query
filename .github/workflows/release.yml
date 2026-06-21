@@ -269,10 +269,19 @@ jobs:
         run: |
           for dmg in *.dmg; do
             echo "=== $dmg ==="
-            spctl --assess --type open --context context:primary-signature -vv "$dmg" || {
-              echo "::error::$dmg failed Gatekeeper. Did notarization succeed?"
+            mountpoint=$(mktemp -d)
+            hdiutil attach "$dmg" -mountpoint "$mountpoint" -nobrowse -quiet
+            trap 'hdiutil detach "$mountpoint" -quiet || true; rmdir "$mountpoint" || true' EXIT
+
+            spctl --assess --type execute -vv "$mountpoint/Query.app" || {
+              echo "::error::Query.app inside $dmg failed Gatekeeper. Did notarization succeed?"
               exit 1
             }
+            codesign --verify --strict --deep --verbose=2 "$mountpoint/Query.app"
+
+            hdiutil detach "$mountpoint" -quiet
+            rmdir "$mountpoint"
+            trap - EXIT
           done
 
       - name: Compute SHA256 sums
