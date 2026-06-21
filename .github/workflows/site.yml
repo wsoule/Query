@@ -40,8 +40,8 @@ jobs:
 
       - name: Copy Pages metadata
         run: |
-          cp site/CNAME dist/CNAME
-          cp site/LOG.md dist/LOG.md
+          cp site/CNAME site/dist/CNAME
+          cp site/LOG.md site/dist/LOG.md
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -49,7 +49,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: site/dist
 
   deploy:
     needs: build
